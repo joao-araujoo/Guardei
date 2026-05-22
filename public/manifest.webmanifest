@@ -1,0 +1,45 @@
+{
+  "name": "Guardei - Acervo com IA",
+  "short_name": "Guardei",
+  "description": "Salve qualquer link da internet, organize seu acervo e receba recomendacoes com IA para o tempo livre que voce tiver.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f6edd8",
+  "theme_color": "#f6edd8",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/icons/vault-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "share_target": {
+    "action": "/?share-target=1",
+    "method": "GET",
+    "enctype": "application/x-www-form-urlencoded",
+    "params": {
+      "title": "title",
+      "text": "text",
+      "url": "url"
+    }
+  },
+  "shortcuts": [
+    {
+      "name": "Guardar link",
+      "short_name": "Guardar",
+      "description": "Abrir direto na tela de salvamento.",
+      "url": "/?add=1",
+      "icons": [{ "src": "/icons/vault-icon.svg", "sizes": "any" }]
+    },
+    {
+      "name": "Revisao rapida",
+      "short_name": "Revisar",
+      "description": "Abrir itens para revisar.",
+      "url": "/?review=1",
+      "icons": [{ "src": "/icons/vault-icon.svg", "sizes": "any" }]
+    }
+  ]
+}

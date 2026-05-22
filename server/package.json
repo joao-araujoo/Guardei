@@ -1,0 +1,21 @@
+{
+  "name": "tiktok-vault-server",
+  "version": "1.0.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "node --watch src/index.js",
+    "start": "node src/index.js",
+    "db:generate": "prisma generate",
+    "db:push": "prisma db push",
+    "db:studio": "prisma studio"
+  },
+  "dependencies": {
+    "@google/genai": "latest",
+    "@prisma/client": "^6.19.0",
+    "cors": "latest",
+    "dotenv": "latest",
+    "express": "latest",
+    "prisma": "^6.19.0"
+  }
+}
