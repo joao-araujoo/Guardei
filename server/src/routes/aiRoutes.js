@@ -1,5 +1,5 @@
 import express from "express";
-import { classifyTikTokWithGemini, classifyVideoWithGemini } from "../ai/geminiClassifier.js";
+import { chatWithMascotGemini, classifyTikTokWithGemini, classifyVideoWithGemini } from "../ai/geminiClassifier.js";
 
 const router = express.Router();
 
@@ -138,6 +138,31 @@ router.post("/classify-tiktok", async (req, res) => {
       ok: false,
       message: "Erro ao classificar video.",
     });
+  }
+});
+
+router.post("/mascot-chat", async (req, res) => {
+  try {
+    const { message = "", messages = [], videos = [], stats = {} } = req.body || {};
+    if (!message || typeof message !== "string") {
+      return res.status(400).json({ ok: false, message: "Mensagem obrigatoria." });
+    }
+
+    const answer = await chatWithMascotGemini({
+      message,
+      messages: Array.isArray(messages) ? messages : [],
+      videos: Array.isArray(videos) ? videos : [],
+      stats,
+    });
+
+    return res.json({
+      ok: true,
+      source: process.env.GEMINI_API_KEY ? "gemini" : "local-fallback",
+      answer,
+    });
+  } catch (error) {
+    console.error("Erro na rota /mascot-chat:", error);
+    return res.status(500).json({ ok: false, message: "Erro ao conversar com mascote." });
   }
 });
 

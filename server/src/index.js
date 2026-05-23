@@ -2,6 +2,7 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import authRoutes from "./routes/authRoutes.js";
+import achievementRoutes from "./routes/achievementRoutes.js";
 import aiRoutes from "./routes/aiRoutes.js";
 import settingsRoutes from "./routes/settingsRoutes.js";
 import videoRoutes from "./routes/videoRoutes.js";
@@ -41,6 +42,7 @@ app.get("/api/health", (req, res) => {
 });
 
 app.use("/api/auth", authRoutes);
+app.use("/api/achievements", achievementRoutes);
 app.use("/api/ai", aiRoutes);
 app.use("/api/settings", settingsRoutes);
 app.use("/api/videos", videoRoutes);

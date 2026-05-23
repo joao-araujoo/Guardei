@@ -10,9 +10,15 @@
   "orientation": "portrait-primary",
   "icons": [
     {
-      "src": "/icons/vault-icon.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
+      "src": "/icons/guardei-icon.png",
+      "sizes": "1254x1254",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/guardei-icon-transparent.png",
+      "sizes": "1254x1254",
+      "type": "image/png",
       "purpose": "any maskable"
     }
   ],
@@ -32,14 +38,14 @@
       "short_name": "Guardar",
       "description": "Abrir direto na tela de salvamento.",
       "url": "/?add=1",
-      "icons": [{ "src": "/icons/vault-icon.svg", "sizes": "any" }]
+      "icons": [{ "src": "/icons/guardei-icon.png", "sizes": "1254x1254", "type": "image/png" }]
     },
     {
       "name": "Revisao rapida",
       "short_name": "Revisar",
       "description": "Abrir itens para revisar.",
       "url": "/?review=1",
-      "icons": [{ "src": "/icons/vault-icon.svg", "sizes": "any" }]
+      "icons": [{ "src": "/icons/guardei-icon.png", "sizes": "1254x1254", "type": "image/png" }]
     }
   ]
 }

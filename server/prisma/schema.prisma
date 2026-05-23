@@ -53,6 +53,10 @@ model Video {
   durationBucket    String?
   bestFor           String?
   watchWhen         String?
+  sourceName        String?
+  watchedAt         DateTime?
+  watchedSeconds    Int           @default(0)
+  watchCount        Int           @default(0)
   sourceText        String?
   origin            String        @default("manual")
   reviewCount       Int           @default(0)
@@ -84,6 +88,7 @@ model User {
   updatedAt    DateTime      @updatedAt
   videos       Video[]
   settings     UserSettings?
+  achievements UserAchievement[]
 }
 
 model UserSettings {
@@ -109,4 +114,16 @@ model VideoRevision {
 
   @@index([videoId])
   @@index([createdAt])
+}
+
+model UserAchievement {
+  id            String   @id @default(cuid())
+  userId        String
+  achievementId String
+  unlockedAt    DateTime @default(now())
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, achievementId])
+  @@index([userId])
+  @@index([achievementId])
 }

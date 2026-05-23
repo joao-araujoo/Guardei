@@ -119,6 +119,10 @@ function toDbVideo(video, userId) {
     durationBucket: video.durationBucket,
     bestFor: video.bestFor,
     watchWhen: video.watchWhen,
+    sourceName: video.sourceName,
+    watchedAt: video.watchedAt ? new Date(video.watchedAt) : null,
+    watchedSeconds: Number(video.watchedSeconds || 0),
+    watchCount: Number(video.watchCount || 0),
     sourceText: video.sourceText,
     origin: video.origin || "manual",
     reviewCount: Number(video.reviewCount || 0),
@@ -138,7 +142,7 @@ function toDbVideoPatch(patch) {
     "canonicalUrl", "platform", "platformLabel", "videoId", "tiktokId", "titleOriginal",
     "titleAi", "titleCustom", "authorName", "authorUrl", "thumbnailUrl", "thumbnailFallback",
     "providerName", "description", "category", "reason", "tags", "note", "summary", "mood",
-    "effort", "durationBucket", "bestFor", "watchWhen", "sourceText", "origin", "reviewCount",
+    "effort", "durationBucket", "bestFor", "watchWhen", "sourceName", "sourceText", "origin", "reviewCount",
     "schemaVersion",
   ];
 
@@ -149,6 +153,9 @@ function toDbVideoPatch(patch) {
   if (patch.priority !== undefined) data.priority = normalizePriority(patch.priority);
   if (patch.status !== undefined) data.status = normalizeStatus(patch.status);
   if (patch.reviewedAt !== undefined) data.reviewedAt = patch.reviewedAt ? new Date(patch.reviewedAt) : null;
+  if (patch.watchedAt !== undefined) data.watchedAt = patch.watchedAt ? new Date(patch.watchedAt) : null;
+  if (patch.watchedSeconds !== undefined) data.watchedSeconds = Number(patch.watchedSeconds || 0);
+  if (patch.watchCount !== undefined) data.watchCount = Number(patch.watchCount || 0);
   if (patch.ai?.engine !== undefined) data.aiEngine = patch.ai.engine;
   if (patch.ai?.confidence !== undefined) data.aiConfidence = patch.ai.confidence;
   if (patch.ai?.rationale !== undefined) data.aiRationale = patch.ai.rationale;
@@ -163,6 +170,7 @@ function fromDbVideo(video) {
     createdAt: video.createdAt?.toISOString?.() || video.createdAt,
     updatedAt: video.updatedAt?.toISOString?.() || video.updatedAt,
     reviewedAt: video.reviewedAt?.toISOString?.() || video.reviewedAt,
+    watchedAt: video.watchedAt?.toISOString?.() || video.watchedAt,
     ai: {
       engine: video.aiEngine,
       confidence: video.aiConfidence,

@@ -1,5 +1,6 @@
 const STORAGE_KEY = 'vault.auto.videos.v2';
 const SETTINGS_KEY = 'vault.auto.settings.v2';
+const ACHIEVEMENTS_KEY = 'vault.auto.achievements.v2';
 
 export class LocalVaultRepository {
   async listVideos() {
@@ -52,6 +53,23 @@ export class LocalVaultRepository {
     localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
     return settings;
   }
+
+  async listAchievements() {
+    return safeRead(ACHIEVEMENTS_KEY, []);
+  }
+
+  async syncAchievements(achievementIds = []) {
+    const existing = await this.listAchievements();
+    const byId = new Map(existing.map(item => [item.achievementId, item]));
+    achievementIds.forEach(achievementId => {
+      if (!byId.has(achievementId)) {
+        byId.set(achievementId, { achievementId, unlockedAt: new Date().toISOString() });
+      }
+    });
+    const next = [...byId.values()];
+    localStorage.setItem(ACHIEVEMENTS_KEY, JSON.stringify(next));
+    return next;
+  }
 }
 
 export class ApiVaultRepository {
@@ -103,6 +121,14 @@ export class ApiVaultRepository {
     return this.request('/api/auth/logout', { method: 'POST' });
   }
 
+  async listAchievements() {
+    return this.request('/api/achievements');
+  }
+
+  async syncAchievements(achievementIds = []) {
+    return this.request('/api/achievements/sync', { method: 'POST', body: { achievementIds } });
+  }
+
   async request(path, options = {}) {
     const response = await fetch(`${this.baseUrl}${path}`, {
       method: options.method || 'GET',
@@ -138,6 +164,7 @@ export function exportVault(videos, settings = {}) {
     version: 2,
     exportedAt: new Date().toISOString(),
     settings,
+    achievements: safeRead(ACHIEVEMENTS_KEY, []),
     videos
   };
 }

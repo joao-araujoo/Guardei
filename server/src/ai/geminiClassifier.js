@@ -96,7 +96,7 @@ Autor/canal: ${author || ""}
 
 Objetivo do app:
 - Ajudar a pessoa a decidir o que abrir, assistir, ouvir ou ler conforme tempo livre, humor e energia mental.
-- Criar uma nota inicial para lembrar por que o link foi salvo.
+- Nao reescrever titulo nem notas do usuario; apenas classificar, categorizar e sugerir metadados.
 - Organizar videos, musicas, threads, artigos, repositorios e posts no mesmo acervo.
 
 Categorias permitidas: ${CATEGORIES.join(", ")}.
@@ -141,13 +141,13 @@ Tempo: short, medium, long ou unknown. Use short para posts, musicas e videos cu
     const parsed = JSON.parse(response.text || "{}");
 
     return {
-      titleAi: clamp(parsed.titleAi, fallback.titleAi, 90),
+      titleAi: fallback.titleAi,
       category: CATEGORIES.includes(parsed.category) ? parsed.category : fallback.category,
       reason: REASONS.includes(parsed.reason) ? parsed.reason : fallback.reason,
       priority: PRIORITIES.includes(parsed.priority) ? parsed.priority : fallback.priority,
       tags: normalizeTags(parsed.tags, fallback.tags),
       summary: clamp(parsed.summary, fallback.summary, 180),
-      note: clamp(parsed.note, parsed.summary || fallback.note, 240),
+      note: "",
       mood: MOODS.includes(parsed.mood) ? parsed.mood : fallback.mood,
       effort: EFFORTS.includes(parsed.effort) ? parsed.effort : fallback.effort,
       durationBucket: DURATIONS.includes(parsed.durationBucket) ? parsed.durationBucket : fallback.durationBucket,
@@ -172,6 +172,83 @@ export async function classifyTikTokWithGemini(payload) {
     tags: result.tags,
     summary: result.summary,
   };
+}
+
+export async function chatWithMascotGemini({ message = "", messages = [], videos = [], stats = {} }) {
+  const fallback = fallbackMascotChat({ message, videos, stats });
+  if (!process.env.GEMINI_API_KEY) return fallback;
+
+  const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+  const model = process.env.GEMINI_MODEL || "gemini-3.1-flash-lite";
+  const catalog = videos
+    .slice(0, 25)
+    .map((video, index) => `${index + 1}. ${video.title || "Sem titulo"} | ${video.category || "Geral"} | ${video.status || ""} | mood ${video.mood || "neutro"} | ${video.durationBucket || "unknown"} | tags ${(video.tags || []).slice(0, 5).join(", ")}`)
+    .join("\n");
+  const history = messages
+    .slice(-8)
+    .map((item) => `${item.role === "user" ? "Usuario" : "Mascote"}: ${item.text}`)
+    .join("\n");
+
+  const prompt = `
+Voce e o mascote do app Guardei. Responda em portugues do Brasil, de forma curta, util e amigavel.
+
+Seu papel:
+- Ajudar o usuario a parar de procrastinar e abrir conteudos salvos.
+- Recomendar itens do acervo conforme humor, tempo livre, energia e interesse.
+- Opinar sobre padroes de consumo com base nos dados fornecidos.
+- Gerar pequenos relatorios sobre o que o usuario consome mais.
+- Sugerir uma acao simples, concreta e leve. Nao seja generico.
+
+Nao finja que assistiu conteudos. Use apenas titulos, categorias, tags e estatisticas fornecidas.
+Evite respostas longas. Limite a 2 ou 3 frases.
+
+Estatisticas:
+${JSON.stringify(stats)}
+
+Itens recentes/disponiveis:
+${catalog || "Nenhum item no acervo ainda."}
+
+Historico:
+${history}
+
+Mensagem atual: ${message}
+`;
+
+  try {
+    const response = await ai.models.generateContent({
+      model,
+      contents: prompt,
+      config: {
+        temperature: 0.55,
+        maxOutputTokens: 220,
+      },
+    });
+    return clamp(response.text, fallback, 420);
+  } catch (error) {
+    console.error("Erro no chat do mascote:", error);
+    return fallback;
+  }
+}
+
+function fallbackMascotChat({ message = "", videos = [], stats = {} }) {
+  const text = normalize(message);
+  const pool = videos.filter((video) => !["Arquivado", "arquivado"].includes(video.status || ""));
+  const short = pool.find((video) => video.durationBucket === "short") || pool[0];
+  const topCategory = videos.reduce((acc, video) => {
+    const key = video.category || "Geral";
+    acc[key] = (acc[key] || 0) + 1;
+    return acc;
+  }, {});
+  const top = Object.entries(topCategory).sort((a, b) => b[1] - a[1])[0]?.[0] || "nenhuma categoria ainda";
+
+  if (text.includes("relat") || text.includes("consum")) {
+    return `Seu resumo agora: ${stats.watched || 0} itens vistos, ${stats.minutes || 0} minutos registrados e maior presença em ${top}. Eu escolheria um item curto para manter o ritmo.`;
+  }
+  if (text.includes("procrast") || text.includes("sem foco") || text.includes("cans")) {
+    return short ? `Vamos sem drama: abre "${short.title}" por 5 minutos. Se nao encaixar, voce arquiva e segue leve.` : "Seu acervo ainda esta vazio. Salva um item curto e eu te ajudo a comecar por ele.";
+  }
+  if (short) return `Eu iria em "${short.title}" agora. Parece uma boa escolha para destravar sem transformar revisao em tarefa gigante.`;
+  return "Me diga seu mood e quanto tempo voce tem. Eu uso seu acervo para escolher algo bem pratico.";
 }
 
 function hasAny(text, words) {

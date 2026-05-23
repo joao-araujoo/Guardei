@@ -2,7 +2,7 @@ export const CATEGORIES = [
   {
     id: 'dev',
     label: 'Dev',
-    emoji: '💻',
+    icon: 'code',
     accent: '#c77dff',
     gradient: 'linear-gradient(135deg,#0d0020,#3a1260,#7b2fff55)',
     keywords: [
@@ -13,8 +13,8 @@ export const CATEGORIES = [
   },
   {
     id: 'tech',
-    label: 'Tech',
-    emoji: '⚙️',
+    label: 'Tecnologia',
+    icon: 'settings',
     accent: '#00d4ff',
     gradient: 'linear-gradient(135deg,#00121f,#003566,#00b4d855)',
     keywords: [
@@ -26,7 +26,7 @@ export const CATEGORIES = [
   {
     id: 'design',
     label: 'Design',
-    emoji: '🎨',
+    icon: 'palette',
     accent: '#ff6b9d',
     gradient: 'linear-gradient(135deg,#1a0008,#5c1232,#ff6b9d55)',
     keywords: [
@@ -37,8 +37,8 @@ export const CATEGORIES = [
   },
   {
     id: 'mente',
-    label: 'Mente',
-    emoji: '🧠',
+    label: 'Mentalidade',
+    icon: 'brain',
     accent: '#a5b4fc',
     gradient: 'linear-gradient(135deg,#060826,#25234e,#a5b4fc4f)',
     keywords: [
@@ -49,8 +49,8 @@ export const CATEGORIES = [
   },
   {
     id: 'grana',
-    label: 'Grana',
-    emoji: '💸',
+    label: 'Financeiro',
+    icon: 'wallet',
     accent: '#06d6a0',
     gradient: 'linear-gradient(135deg,#001a0d,#0d3a1f,#06d6a055)',
     keywords: [
@@ -61,8 +61,8 @@ export const CATEGORIES = [
   },
   {
     id: 'corpo',
-    label: 'Corpo',
-    emoji: '🏃',
+    label: 'Saúde',
+    icon: 'heart',
     accent: '#ffd166',
     gradient: 'linear-gradient(135deg,#1a0b00,#5c3500,#ffd16655)',
     keywords: [
@@ -73,8 +73,8 @@ export const CATEGORIES = [
   },
   {
     id: 'ideias',
-    label: 'Ideias',
-    emoji: '✨',
+    label: 'Inspiração',
+    icon: 'zap',
     accent: '#f72585',
     gradient: 'linear-gradient(135deg,#1b0028,#4d006f,#f7258550)',
     keywords: [
@@ -85,8 +85,8 @@ export const CATEGORIES = [
   },
   {
     id: 'musica',
-    label: 'Musica',
-    emoji: '🎧',
+    label: 'Música',
+    icon: 'music',
     accent: '#1db954',
     gradient: 'linear-gradient(135deg,#06140b,#12351f,#1db95466)',
     keywords: [
@@ -96,8 +96,8 @@ export const CATEGORIES = [
   },
   {
     id: 'cultura',
-    label: 'Cultura',
-    emoji: '🍿',
+    label: 'Entretenimento',
+    icon: 'film',
     accent: '#ff8a00',
     gradient: 'linear-gradient(135deg,#1f0d00,#613800,#ff8a0060)',
     keywords: [
@@ -107,8 +107,8 @@ export const CATEGORIES = [
   },
   {
     id: 'misc',
-    label: 'Misc',
-    emoji: '📌',
+    label: 'Geral',
+    icon: 'bookmark',
     accent: '#8b8ba7',
     gradient: 'linear-gradient(135deg,#11111d,#25253a,#8b8ba740)',
     keywords: []
@@ -118,19 +118,19 @@ export const CATEGORIES = [
 export const CATEGORY_BY_ID = Object.fromEntries(CATEGORIES.map(category => [category.id, category]));
 
 export const REASONS = [
-  { id: 'aprender', label: 'Aprender', emoji: '🧠', keywords: ['tutorial', 'aula', 'aprenda', 'aprender', 'dica', 'explica', 'guia', 'passo a passo', 'curso'] },
-  { id: 'aplicar', label: 'Aplicar', emoji: '🛠️', keywords: ['usar', 'aplicar', 'implementar', 'projeto', 'código', 'codigo', 'fazer', 'build', 'criar'] },
-  { id: 'inspirar', label: 'Inspirar', emoji: '✨', keywords: ['inspiração', 'inspiracao', 'ideia', 'referência', 'referencia', 'design', 'modelo', 'exemplo'] },
-  { id: 'comprar', label: 'Comprar', emoji: '🛒', keywords: ['comprar', 'produto', 'preço', 'preco', 'review', 'vale a pena', 'oferta'] },
-  { id: 'refletir', label: 'Refletir', emoji: '💭', keywords: ['vida', 'mente', 'reflexão', 'reflexao', 'ansiedade', 'rotina', 'hábito', 'habito'] },
-  { id: 'guardar', label: 'Guardar', emoji: '📌', keywords: [] }
+  { id: 'aprender', label: 'Aprender', icon: 'brain', keywords: ['tutorial', 'aula', 'aprenda', 'aprender', 'dica', 'explica', 'guia', 'passo a passo', 'curso'] },
+  { id: 'aplicar', label: 'Aplicar', icon: 'code', keywords: ['usar', 'aplicar', 'implementar', 'projeto', 'código', 'codigo', 'fazer', 'build', 'criar'] },
+  { id: 'inspirar', label: 'Inspirar', icon: 'zap', keywords: ['inspiração', 'inspiracao', 'ideia', 'referência', 'referencia', 'design', 'modelo', 'exemplo'] },
+  { id: 'comprar', label: 'Comprar', icon: 'wallet', keywords: ['comprar', 'produto', 'preço', 'preco', 'review', 'vale a pena', 'oferta'] },
+  { id: 'refletir', label: 'Refletir', icon: 'brain', keywords: ['vida', 'mente', 'reflexão', 'reflexao', 'ansiedade', 'rotina', 'hábito', 'habito'] },
+  { id: 'guardar', label: 'Guardar', icon: 'bookmark', keywords: [] }
 ];
 
 export const STATUS = {
-  inbox: { label: 'Inbox', emoji: '📥' },
-  novo: { label: 'Novo', emoji: '🆕' },
-  rever: { label: 'Rever', emoji: '🔁' },
-  importante: { label: 'Importante', emoji: '⭐' },
-  aplicado: { label: 'Aplicado', emoji: '✅' },
-  arquivado: { label: 'Arquivado', emoji: '🗄️' }
+  inbox: { label: 'Inbox', icon: 'inbox' },
+  novo: { label: 'Novo', icon: 'plus' },
+  rever: { label: 'Rever', icon: 'repeat' },
+  importante: { label: 'Importante', icon: 'star' },
+  aplicado: { label: 'Aplicado', icon: 'check' },
+  arquivado: { label: 'Arquivado', icon: 'archive' }
 };
