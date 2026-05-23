@@ -14,7 +14,7 @@ dotenv.config();
 const app = express();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const clientDistPath = path.resolve(__dirname, "../../../dist");
+const clientDistPath = path.resolve(__dirname, "../../dist");
 
 const PORT = Number(process.env.PORT || 3333);
 const CORS_ORIGIN = process.env.CORS_ORIGIN || "http://localhost:5173";
