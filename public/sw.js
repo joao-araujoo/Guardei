@@ -1,5 +1,11 @@
-const CACHE_NAME = 'vault-auto-v2';
-const ASSETS = ['/', '/index.html', '/manifest.webmanifest', '/icons/vault-icon.svg'];
+const CACHE_NAME = 'guardei-v3';
+const ASSETS = [
+  '/',
+  '/index.html',
+  '/manifest.webmanifest',
+  '/icons/guardei-icon.png',
+  '/icons/guardei-icon-transparent.png'
+];
 
 self.addEventListener('install', event => {
   self.skipWaiting();

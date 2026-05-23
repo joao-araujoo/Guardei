@@ -122,6 +122,7 @@ export default function App() {
   const deferredPromptRef = useRef(null);
   const announcedAchievementsRef = useRef(new Set());
   const achievementsReadyRef = useRef(false);
+  const pendingSharePayloadRef = useRef(null);
 
   const selectedVideo = useMemo(() => videos.find(video => video.id === selectedId) || null, [videos, selectedId]);
 
@@ -174,6 +175,12 @@ export default function App() {
     async function boot() {
       let initialVideos = [];
       let initialSettings = {};
+      const params = new URLSearchParams(window.location.search);
+      const sharePayload = getSharePayloadFromUrl();
+      if (sharePayload.isShareTarget && sharePayload.url) {
+        pendingSharePayloadRef.current = sharePayload;
+      }
+
       try {
         if (repository.me) {
           const session = await repository.me();
@@ -182,6 +189,7 @@ export default function App() {
         [initialVideos, initialSettings] = await Promise.all([repository.listVideos(), repository.getSettings?.() || {}]);
       } catch (error) {
         if (error.status === 401) {
+          if (pendingSharePayloadRef.current) setView('add');
           setAuthChecked(true);
           return;
         }
@@ -192,18 +200,10 @@ export default function App() {
       setVideos(initialVideos);
       setSettings(initialSettings);
 
-      const params = new URLSearchParams(window.location.search);
       if (params.has('review')) setView('review');
       if (params.has('add')) setView('add');
 
-      const payload = getSharePayloadFromUrl();
-      if (payload.isShareTarget && payload.url) {
-        await saveAuto({ url: payload.url, text: payload.sourceText, title: payload.title, origin: 'share-target', silent: true });
-        await loadVaultData();
-        window.history.replaceState({}, document.title, '/');
-        showToast('Link salvo com sucesso');
-        if (initialSettings?.autoOpenReviewAfterShare) setView('review');
-      }
+      await consumePendingShare(initialSettings);
       setAuthChecked(true);
     }
 
@@ -264,6 +264,7 @@ export default function App() {
     const [nextVideos, nextSettings] = await Promise.all([repository.listVideos(), repository.getSettings?.() || {}]);
     setVideos(nextVideos);
     setSettings(nextSettings);
+    return { videos: nextVideos, settings: nextSettings };
   }
 
   async function handleAuth(event) {
@@ -273,8 +274,9 @@ export default function App() {
       const action = authMode === 'register' ? repository.register : repository.login;
       const result = await action.call(repository, authForm);
       setUser(result.user);
-      await loadVaultData();
-      showToast(authMode === 'register' ? 'Conta criada com sucesso' : 'Bem-vindo!');
+      const data = await loadVaultData();
+      const shared = await consumePendingShare(data.settings);
+      if (!shared) showToast(authMode === 'register' ? 'Conta criada com sucesso' : 'Bem-vindo!');
     } catch (error) {
       showToast(error.payload?.message || 'Não foi possível autenticar');
     } finally {
@@ -295,6 +297,23 @@ export default function App() {
   async function syncVideos(nextVideos) {
     setVideos(nextVideos);
     await repository.saveVideos?.(nextVideos);
+  }
+
+  async function consumePendingShare(settingsOverride = settings) {
+    const payload = pendingSharePayloadRef.current;
+    if (!payload?.isShareTarget || !payload.url) return false;
+
+    pendingSharePayloadRef.current = null;
+    const saved = await saveAuto({ url: payload.url, text: payload.sourceText, title: payload.title, origin: 'share-target', silent: true });
+    if (!saved) {
+      pendingSharePayloadRef.current = payload;
+      return false;
+    }
+    await loadVaultData();
+    window.history.replaceState({}, document.title, '/');
+    showToast('Link salvo com sucesso');
+    if (settingsOverride?.autoOpenReviewAfterShare) setView('review');
+    return true;
   }
 
   async function saveAuto({ url, text = '', title = '', origin = 'manual', silent = false }) {
