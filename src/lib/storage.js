@@ -154,7 +154,7 @@ export class ApiVaultRepository {
 export function createRepository() {
   const apiUrl = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_VAULT_API_URL || window.VAULT_API_URL || '';
   const mode = import.meta.env.VITE_STORAGE_MODE || window.VAULT_STORAGE_MODE || 'local';
-  if (mode === 'api' && apiUrl) return new ApiVaultRepository(apiUrl);
+  if (mode === 'api') return new ApiVaultRepository(apiUrl);
   return new LocalVaultRepository();
 }
 

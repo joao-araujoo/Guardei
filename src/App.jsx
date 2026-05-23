@@ -1441,7 +1441,6 @@ function buildWatchStats(videos) {
 
 async function chatWithMascot({ message, messages, videos, stats }) {
   const baseUrl = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_VAULT_API_URL || window.VAULT_API_URL || '';
-  if (!baseUrl) throw new Error('Backend indisponivel');
   const response = await fetch(`${baseUrl.replace(/\/$/, '')}/api/ai/mascot-chat`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

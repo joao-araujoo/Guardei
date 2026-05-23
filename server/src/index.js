@@ -1,6 +1,8 @@
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
+import path from "path";
+import { fileURLToPath } from "url";
 import authRoutes from "./routes/authRoutes.js";
 import achievementRoutes from "./routes/achievementRoutes.js";
 import aiRoutes from "./routes/aiRoutes.js";
@@ -10,6 +12,9 @@ import videoRoutes from "./routes/videoRoutes.js";
 dotenv.config();
 
 const app = express();
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const clientDistPath = path.resolve(__dirname, "../../dist");
 
 const PORT = Number(process.env.PORT || 3333);
 const CORS_ORIGIN = process.env.CORS_ORIGIN || "http://localhost:5173";
@@ -46,6 +51,13 @@ app.use("/api/achievements", achievementRoutes);
 app.use("/api/ai", aiRoutes);
 app.use("/api/settings", settingsRoutes);
 app.use("/api/videos", videoRoutes);
+
+app.use(express.static(clientDistPath));
+
+app.use((req, res, next) => {
+  if (req.method !== "GET" || req.path.startsWith("/api/")) return next();
+  res.sendFile(path.join(clientDistPath, "index.html"));
+});
 
 app.use((error, _req, res, _next) => {
   console.error(error);

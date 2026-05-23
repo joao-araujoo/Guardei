@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "vite --host 0.0.0.0",
     "build": "vite build",
-    "preview": "vite preview --host 0.0.0.0"
+    "preview": "vite preview --host 0.0.0.0",
+    "render:build": "npm run build && npm install --prefix server && npm --prefix server run db:generate && npm --prefix server run db:push",
+    "start": "npm --prefix server start"
   },
   "dependencies": {
     "@google/genai": "^2.5.0",

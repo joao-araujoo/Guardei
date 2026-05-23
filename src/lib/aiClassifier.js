@@ -78,7 +78,6 @@ async function tryBackendEnrichment(payload) {
     import.meta.env.VITE_VAULT_API_URL ||
     window.VAULT_API_URL ||
     '';
-  if (!configuredBase) return null;
 
   const url = `${configuredBase.replace(/\/$/, '')}/api/ai/enrich-video`;
   const controller = new AbortController();
