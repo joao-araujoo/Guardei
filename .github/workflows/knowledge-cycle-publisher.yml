@@ -23,8 +23,10 @@ jobs:
         run: test "$(sha256sum .github/knowledge-cycle-patch-parts/part-02 | cut -d' ' -f1)" = "ae383c513f87e77db78ad8520cb4f49dc2502ba5148f4089f3507638ae73f4a6"
       - name: Verify part 03
         run: test "$(sha256sum .github/knowledge-cycle-patch-parts/part-03 | cut -d' ' -f1)" = "dfd26704d1d5a95bedcb6a47670015eea5fdc40ec597c8e29bd8dc384ecf906d"
-      - name: Verify part 04
-        run: test "$(sha256sum .github/knowledge-cycle-patch-parts/part-04 | cut -d' ' -f1)" = "60b7ad08c0b625f6ebd28463d277b9638e1b78560edfe30340b2b585d1583e68"
+      - name: Verify part 04a
+        run: test "$(sha256sum .github/knowledge-cycle-patch-parts/part-04a | cut -d' ' -f1)" = "c12cad1de03323940e640f904b8ced3d9d3a17cb747ede9001e209653bbb1c91"
+      - name: Verify part 04b
+        run: test "$(sha256sum .github/knowledge-cycle-patch-parts/part-04b | cut -d' ' -f1)" = "6ae69444d552c88e66769c4e65ccfad21c0ecd17851c6890ab1a668906714227"
       - name: Verify part 05
         run: test "$(sha256sum .github/knowledge-cycle-patch-parts/part-05 | cut -d' ' -f1)" = "0609fa8f282dd10a21f82be51f0f7bec6a04da29c3cf667e4e3ddfb24be0d9a5"
       - name: Verify part 06
