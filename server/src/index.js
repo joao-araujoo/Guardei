@@ -24,14 +24,21 @@ export function createApp() {
   app.set("trust proxy", 1);
   app.disable("x-powered-by");
   app.use(securityHeaders);
-  app.use(cors({
-    origin(origin, callback) {
-      if (!origin || corsOrigins.includes(origin.replace(/\/$/, ""))) return callback(null, true);
-      return callback(new Error("CORS_ORIGIN_BLOCKED"));
-    },
-    credentials: true,
-    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
+  app.use(cors((req, callback) => {
+    const origin = req.get("origin")?.replace(/\/$/, "");
+    const forwardedProtocol = req.get("x-forwarded-proto")?.split(",")[0]?.trim();
+    const protocol = forwardedProtocol || (req.secure ? "https" : "http");
+    const host = req.get("x-forwarded-host")?.split(",")[0]?.trim() || req.get("host");
+    const requestOrigin = host ? `${protocol}://${host}`.replace(/\/$/, "") : "";
+    const originAllowed = !origin || origin === requestOrigin || corsOrigins.includes(origin);
+
+    if (!originAllowed) return callback(new Error("CORS_ORIGIN_BLOCKED"));
+    return callback(null, {
+      origin: true,
+      credentials: true,
+      methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+      allowedHeaders: ["Content-Type", "Authorization"],
+    });
   }));
   app.use(express.json({ limit: "256kb", strict: true }));
   app.use(verifyRequestOrigin);
