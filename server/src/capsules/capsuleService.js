@@ -1,6 +1,7 @@
 import { extractCapsuleSource } from "./contentExtractionService.js";
 import { serializeCapsule } from "./capsuleSchema.js";
 import { safeLog } from "../security/safeLog.js";
+import { markEmbeddingOutdated, scheduleEmbeddingRefresh } from "../embeddings/embeddingService.js";
 
 export async function findOwnedVideo(prisma, userId, videoId) {
   return prisma.video.findFirst({ where: { id: videoId, userId } });
@@ -54,6 +55,10 @@ export async function createOrRegenerateCapsule({ prisma, userId, videoId, input
         generatedAt: new Date(),
       },
     });
+    if (prisma.videoEmbedding) {
+      await markEmbeddingOutdated(prisma, userId, videoId);
+      scheduleEmbeddingRefresh(prisma, userId, videoId);
+    }
     return { capsule: serializeCapsule(saved), reused: false };
   } catch (error) {
     safeLog("error", "Falha ao gerar capsula", { code: error?.code, name: error?.name, videoId, userId });

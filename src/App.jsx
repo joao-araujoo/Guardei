@@ -5,6 +5,13 @@ import { PLATFORM_OPTIONS, getPlatformMeta } from './lib/platforms.js';
 import { createRepository, exportVault, importVaultPayload } from './lib/storage.js';
 import { extractSupportedVideoUrl, getSharePayloadFromUrl } from './lib/tiktok.js';
 import CapsulePanel from './features/capsules/CapsulePanel.jsx';
+import SmartSearch from './features/search/SmartSearch.jsx';
+import PathsView from './features/paths/PathsView.jsx';
+import PathDetails from './features/paths/PathDetails.jsx';
+import RelatedItems from './features/connections/RelatedItems.jsx';
+import KnowledgeMap from './features/connections/KnowledgeMap.jsx';
+import { searchLibrary } from './services/searchService.js';
+import { pathService } from './services/pathService.js';
 import guardeiLogo from './assets/icons/guardei-logo.png';
 import guardeiMascot from './assets/mascot/guardei-mascot.png';
 
@@ -49,7 +56,9 @@ function IconSymbol({ name, size = 'normal' }) {
     target: 'lucide:target',
     smile: 'lucide:smile',
     gauge: 'lucide:gauge',
-    source: 'lucide:folder-input'
+    source: 'lucide:folder-input',
+    route: 'lucide:route',
+    map: 'lucide:network'
   };
   const sizeClass = size === 'large' ? 'icon-large' : size === 'small' ? 'icon-small' : '';
   return <span className={`icon-symbol ${sizeClass}`}><iconify-icon icon={icons[name] || icons.bookmark} /></span>;
@@ -120,12 +129,19 @@ export default function App() {
   const [mascotBubble, setMascotBubble] = useState('Quer que eu escolha algo rápido para você revisar?');
   const [mascotLoading, setMascotLoading] = useState(false);
   const [isInstallable, setIsInstallable] = useState(false);
+  const [smartSearchResults, setSmartSearchResults] = useState([]);
+  const [smartSearchMeta, setSmartSearchMeta] = useState({});
+  const [smartSearchLoading, setSmartSearchLoading] = useState(false);
+  const [paths, setPaths] = useState([]);
+  const [pathsLoading, setPathsLoading] = useState(false);
+  const [selectedPathId, setSelectedPathId] = useState(null);
   const deferredPromptRef = useRef(null);
   const announcedAchievementsRef = useRef(new Set());
   const achievementsReadyRef = useRef(false);
   const pendingSharePayloadRef = useRef(null);
 
   const selectedVideo = useMemo(() => videos.find(video => video.id === selectedId) || null, [videos, selectedId]);
+  const selectedPath = useMemo(() => paths.find(path => path.id === selectedPathId) || null, [paths, selectedPathId]);
 
   const activeVideos = useMemo(() => videos.filter(video => video.status !== 'arquivado'), [videos]);
   const inboxVideos = useMemo(() => videos.filter(video => video.status === 'inbox'), [videos]);
@@ -259,6 +275,139 @@ export default function App() {
     return () => window.clearInterval(timer);
   }, [authChecked, mascotOpen]);
 
+  useEffect(() => {
+    if (!authChecked || !user || !['paths', 'path-details', 'map'].includes(view)) return;
+    if (paths.length) return;
+    loadPaths();
+  }, [authChecked, user, view]);
+
+  async function loadPaths() {
+    setPathsLoading(true);
+    try {
+      const data = await pathService.list();
+      setPaths(data.paths || []);
+      return data.paths || [];
+    } catch (error) {
+      showToast(error.message || 'Não foi possível carregar as trilhas');
+      return [];
+    } finally {
+      setPathsLoading(false);
+    }
+  }
+
+  async function handleSmartSearch(params) {
+    setSmartSearchLoading(true);
+    try {
+      const data = await searchLibrary(params);
+      setSmartSearchResults(data.results || []);
+      setSmartSearchMeta(data);
+    } catch (error) {
+      showToast(error.message || 'Busca inteligente indisponível');
+      setSmartSearchResults([]);
+      setSmartSearchMeta({ query: params.q, mode: 'textual_fallback', total: 0 });
+    } finally {
+      setSmartSearchLoading(false);
+    }
+  }
+
+  function clearSmartSearch() {
+    setSmartSearchResults([]);
+    setSmartSearchMeta({});
+  }
+
+  async function createLearningPath(payload) {
+    setPathsLoading(true);
+    try {
+      const data = await pathService.create(payload);
+      setPaths(current => [data.path, ...current.filter(path => path.id !== data.path.id)]);
+      setSelectedPathId(data.path.id);
+      setView('path-details');
+      showToast(data.path.items?.length ? 'Trilha criada e organizada' : 'Trilha criada; lacunas foram identificadas');
+      return data.path;
+    } catch (error) {
+      showToast(error.message || 'Não foi possível criar a trilha');
+      return null;
+    } finally {
+      setPathsLoading(false);
+    }
+  }
+
+  async function refreshLearningPath(pathId = selectedPathId) {
+    if (!pathId) return null;
+    const data = await pathService.get(pathId);
+    setPaths(current => current.map(path => path.id === pathId ? data.path : path));
+    return data.path;
+  }
+
+  async function updateLearningPath(patch) {
+    try {
+      const data = await pathService.update(selectedPathId, patch);
+      setPaths(current => current.map(path => path.id === selectedPathId ? data.path : path));
+      showToast('Trilha atualizada');
+      return data.path;
+    } catch (error) { showToast(error.message); return null; }
+  }
+
+  async function updateLearningPathItem(itemId, patch) {
+    try {
+      const data = await pathService.updateItem(selectedPathId, itemId, patch);
+      setPaths(current => current.map(path => path.id === selectedPathId ? data.path : path));
+    } catch (error) { showToast(error.message); }
+  }
+
+  async function removeLearningPathItem(itemId) {
+    try { await pathService.removeItem(selectedPathId, itemId); await refreshLearningPath(); } catch (error) { showToast(error.message); }
+  }
+
+  async function reorderLearningPath(items) {
+    try {
+      const data = await pathService.reorder(selectedPathId, items);
+      setPaths(current => current.map(path => path.id === selectedPathId ? data.path : path));
+    } catch (error) { showToast(error.message); }
+  }
+
+  async function reorganizeLearningPath() {
+    setPathsLoading(true);
+    try {
+      const data = await pathService.reorganize(selectedPathId);
+      setPaths(current => current.map(path => path.id === selectedPathId ? data.path : path));
+      showToast('Trilha reorganizada sem remover suas alterações manuais');
+    } catch (error) { showToast(error.message); } finally { setPathsLoading(false); }
+  }
+
+  async function addLearningPathItem(payload) {
+    try {
+      const data = await pathService.addItem(selectedPathId, payload);
+      setPaths(current => current.map(path => path.id === selectedPathId ? data.path : path));
+      showToast('Conteúdo adicionado à trilha');
+    } catch (error) { showToast(error.message); }
+  }
+
+  async function updateLearningPathGap(gapId, patch) {
+    try {
+      const data = await pathService.updateGap(selectedPathId, gapId, patch);
+      setPaths(current => current.map(path => path.id === selectedPathId ? data.path : path));
+    } catch (error) { showToast(error.message); }
+  }
+
+  async function duplicateLearningPath() {
+    try {
+      const data = await pathService.duplicate(selectedPathId);
+      setPaths(current => [data.path, ...current]);
+      showToast('Trilha duplicada');
+    } catch (error) { showToast(error.message); }
+  }
+
+  async function deleteLearningPath() {
+    try {
+      await pathService.remove(selectedPathId);
+      setPaths(current => current.filter(path => path.id !== selectedPathId));
+      setSelectedPathId(null);
+      setView('paths');
+      showToast('Trilha excluída');
+    } catch (error) { showToast(error.message); }
+  }
+
   function showToast(message) {
     setToast(message);
     window.clearTimeout(showToast.timer);
@@ -295,6 +444,9 @@ export default function App() {
     setVideos([]);
     setSettings(null);
     setSelectedId(null);
+    setSelectedPathId(null);
+    setPaths([]);
+    clearSmartSearch();
     setView('home');
     showToast('Sessão encerrada');
   }
@@ -556,6 +708,8 @@ export default function App() {
           <NavButton active={view === 'home'} onClick={() => setView('home')}>Home</NavButton>
           <NavButton active={view === 'review'} onClick={() => setView('review')}>Revisar</NavButton>
           <NavButton active={view === 'library'} onClick={() => setView('library')}>Biblioteca</NavButton>
+          <NavButton active={view === 'paths' || view === 'path-details'} onClick={() => setView('paths')}>Trilhas</NavButton>
+          <NavButton active={view === 'map'} onClick={() => setView('map')}>Mapa</NavButton>
           <NavButton active={view === 'dashboard'} onClick={() => setView('dashboard')}>Dashboard</NavButton>
           <NavButton active={view === 'achievements'} onClick={() => setView('achievements')}>Conquistas</NavButton>
           <NavButton active={view === 'settings'} onClick={() => setView('settings')}>Configurações</NavButton>
@@ -626,7 +780,40 @@ export default function App() {
             setFilters={setFilters}
             setSelectedId={setSelectedId}
             deleteVideo={deleteVideo}
+            smartResults={smartSearchResults}
+            smartMeta={smartSearchMeta}
+            smartLoading={smartSearchLoading}
+            onSmartSearch={handleSmartSearch}
+            onClearSmartSearch={clearSmartSearch}
           />
+        )}
+
+        {view === 'paths' && (
+          <PathsView paths={paths} loading={pathsLoading} categories={CATEGORIES} onCreate={createLearningPath} onOpen={id => { setSelectedPathId(id); setView('path-details'); }} />
+        )}
+
+        {view === 'path-details' && selectedPath && (
+          <PathDetails
+            path={selectedPath}
+            videos={videos}
+            loading={pathsLoading}
+            onBack={() => setView('paths')}
+            onOpenVideo={setSelectedId}
+            onUpdate={updateLearningPath}
+            onUpdateItem={updateLearningPathItem}
+            onRemoveItem={removeLearningPathItem}
+            onReorder={reorderLearningPath}
+            onReorganize={reorganizeLearningPath}
+            onDuplicate={duplicateLearningPath}
+            onDelete={deleteLearningPath}
+            onAddItem={addLearningPathItem}
+            onUpdateGap={updateLearningPathGap}
+            onTalk={() => { setMascotInput(`O que eu deveria fazer agora na trilha ${selectedPath.title}?`); setMascotOpen(true); }}
+          />
+        )}
+
+        {view === 'map' && (
+          <KnowledgeMap categories={CATEGORIES} paths={paths} onOpenItem={setSelectedId} />
         )}
 
         {view === 'dashboard' && (
@@ -662,6 +849,7 @@ export default function App() {
           onMarkWatched={markWatched}
           onCapsuleChange={capsule => updateVideoCapsule(selectedVideo.id, capsule)}
           onNotify={showToast}
+          onOpenRelated={setSelectedId}
         />
       )}
 
@@ -942,7 +1130,7 @@ function ReviewView({ video, queueLength, reviewIndex, setReviewIndex, markRevie
   );
 }
 
-function LibraryView({ videos, total, filters, setFilters, setSelectedId, deleteVideo }) {
+function LibraryView({ videos, total, filters, setFilters, setSelectedId, deleteVideo, smartResults, smartMeta, smartLoading, onSmartSearch, onClearSmartSearch }) {
   return (
     <section className="view-stack">
       <div className="library-head">
@@ -950,13 +1138,13 @@ function LibraryView({ videos, total, filters, setFilters, setSelectedId, delete
           <span className="eyebrow">Biblioteca</span>
           <h2>{videos.length} de {total} itens</h2>
         </div>
-        <input
-          className="search-input"
-          value={filters.query}
-          onChange={event => setFilters({ ...filters, query: event.target.value })}
-          placeholder="Buscar por título, tag, nota..."
-        />
+        <span className="library-search-caption">Busca literal e inteligente disponíveis abaixo</span>
       </div>
+
+      <SmartSearch categories={CATEGORIES} platforms={PLATFORM_OPTIONS} onSearch={onSmartSearch} results={smartResults} loading={smartLoading} meta={smartMeta} onOpenItem={setSelectedId} onClear={onClearSmartSearch} />
+
+      <details className="literal-search-panel"><summary>Busca textual simples e filtros rápidos</summary>
+      <label className="literal-search-field"><span>Buscar literalmente</span><input className="search-input" value={filters.query} onChange={event => setFilters({ ...filters, query: event.target.value })} placeholder="Título, tag ou nota exata..." /></label>
 
       <div className="filter-strip">
         <FilterChip active={filters.category === 'all'} onClick={() => setFilters({ ...filters, category: 'all' })}>Todos</FilterChip>
@@ -989,6 +1177,7 @@ function LibraryView({ videos, total, filters, setFilters, setSelectedId, delete
         <FilterChip active={filters.capsule === 'complete'} onClick={() => setFilters({ ...filters, capsule: 'complete' })}>Análise completa</FilterChip>
         <FilterChip active={filters.capsule === 'limited'} onClick={() => setFilters({ ...filters, capsule: 'limited' })}>Análise limitada</FilterChip>
       </div>
+      </details>
 
       {videos.length ? (
         <div className="video-grid">
@@ -1269,7 +1458,7 @@ function VideoCard({ video, onClick, onDelete, big = false }) {
   );
 }
 
-function VideoModal({ video, onClose, onUpdate, onDelete, onOpen, onMarkWatched, onCapsuleChange, onNotify }) {
+function VideoModal({ video, onClose, onUpdate, onDelete, onOpen, onMarkWatched, onCapsuleChange, onNotify, onOpenRelated }) {
   const [draft, setDraft] = useState(video);
   const [tagText, setTagText] = useState((video.tags || []).join(', '));
   const [watchedMinutes, setWatchedMinutes] = useState(Math.round((video.watchedSeconds || 0) / 60) || 5);
@@ -1462,6 +1651,8 @@ function VideoModal({ video, onClose, onUpdate, onDelete, onOpen, onMarkWatched,
             onNotify={onNotify}
           />
 
+          <RelatedItems videoId={video.id} onOpenItem={onOpenRelated} />
+
           <div className="modal-actions">
             <button className="primary-btn" onClick={onOpen}>Abrir Link</button>
             <button className="secondary-btn" onClick={() => onMarkWatched(video.id, watchedMinutes)}>Marcar visto</button>
@@ -1527,6 +1718,8 @@ function MobileDock({ view, setView }) {
     ['add', 'Salvar', 'plus'],
     ['review', 'Rever', 'repeat'],
     ['library', 'Acervo', 'book'],
+    ['paths', 'Trilhas', 'route'],
+    ['map', 'Mapa', 'map'],
     ['dashboard', 'Dados', 'chart'],
     ['achievements', 'Troféus', 'trophy'],
     ['settings', 'Config', 'settings']

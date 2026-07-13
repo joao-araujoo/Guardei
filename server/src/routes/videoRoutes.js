@@ -1,6 +1,7 @@
 import express from "express";
 import { requireAuth } from "../middleware/auth.js";
 import { prisma } from "../db/prisma.js";
+import { scheduleEmbeddingRefresh, markEmbeddingOutdated } from "../embeddings/embeddingService.js";
 
 const router = express.Router();
 
@@ -33,6 +34,7 @@ router.post("/", async (req, res, next) => {
     if (existing) return res.json({ video: fromDbVideo(existing), duplicated: true });
 
     const created = await prisma.video.create({ data: toDbVideo(video, req.user.id) });
+    scheduleEmbeddingRefresh(prisma, req.user.id, created.id);
     res.status(201).json({ video: fromDbVideo(created), duplicated: false });
   } catch (error) {
     next(error);
@@ -48,6 +50,10 @@ router.patch("/:id", async (req, res, next) => {
     if (!result.count) return res.status(404).json({ ok: false, message: "Video nao encontrado." });
 
     const updated = await prisma.video.findUnique({ where: { id: req.params.id }, include: capsuleSummaryInclude });
+    if (embeddingRelevantPatch(req.body || {})) {
+      await markEmbeddingOutdated(prisma, req.user.id, req.params.id);
+      scheduleEmbeddingRefresh(prisma, req.user.id, req.params.id);
+    }
     res.json(fromDbVideo(updated));
   } catch (error) {
     next(error);
@@ -75,8 +81,10 @@ router.post("/import", async (req, res, next) => {
           where: { id: existing.id },
           data: toDbVideoPatch(video),
         });
+        scheduleEmbeddingRefresh(prisma, req.user.id, existing.id);
       } else {
-        await prisma.video.create({ data: toDbVideo(video, req.user.id) });
+        const created = await prisma.video.create({ data: toDbVideo(video, req.user.id) });
+        scheduleEmbeddingRefresh(prisma, req.user.id, created.id);
       }
     }
     const all = await prisma.video.findMany({
@@ -206,6 +214,10 @@ function normalizePriority(value) {
 
 function normalizeStatus(value) {
   return ["inbox", "novo", "rever", "importante", "aplicado", "arquivado"].includes(value) ? value : "novo";
+}
+
+function embeddingRelevantPatch(patch) {
+  return ["titleCustom", "titleAi", "titleOriginal", "description", "note", "category", "tags", "summary"].some((field) => patch[field] !== undefined);
 }
 
 export default router;
