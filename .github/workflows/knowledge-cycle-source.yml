@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - feat/knowledge-cycle
+  pull_request:
+    branches:
+      - feat/semantic-search-learning-paths
 
 jobs:
   snapshot:
