@@ -28,20 +28,17 @@ if [[ "${patch_hash}" != "67e50b79e56223432047871b49a6b2204aa5d212219e9c58e46c19
   exit 13
 fi
 
-git show 12b996f96fc845d68c701e31f642ff3fb766b1c8:.github/workflows/capsule-ci.yml > .github/workflows/capsule-ci.yml
-
-if ! git apply --check /tmp/capsule-changes.patch 2> /tmp/capsule-apply-error.txt; then
+if ! git apply --check --exclude='.github/workflows/capsule-ci.yml' /tmp/capsule-changes.patch 2> /tmp/capsule-apply-error.txt; then
   echo "Patch validation failed:"
   cat /tmp/capsule-apply-error.txt
   exit 14
 fi
 
-git apply /tmp/capsule-changes.patch
+git apply --exclude='.github/workflows/capsule-ci.yml' /tmp/capsule-changes.patch
 rm -rf .github/capsule-patch-parts
 rm -f .github/capsule-patch-ready
 rm -f .github/capsule-patch-diagnostic.txt
 rm -f .github/patch-publish.sh
-rm -f .github/workflows/apply-capsule-patch.yml
 
 git config user.name "github-actions[bot]"
 git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
