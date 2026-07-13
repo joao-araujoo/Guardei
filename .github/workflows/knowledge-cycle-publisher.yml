@@ -30,9 +30,11 @@ jobs:
           set -euo pipefail
           cat .github/knowledge-cycle-patch-parts/part-* > /tmp/knowledge-cycle.patch.gz.b64
           encoded_hash="$(sha256sum /tmp/knowledge-cycle.patch.gz.b64 | cut -d' ' -f1)"
+          echo "encoded_hash=$encoded_hash"
           test "$encoded_hash" = "b6497c2a0e0071e01a89722582df21be0b68ed62f6e2591acfa12ba587f53b7b"
           base64 --decode /tmp/knowledge-cycle.patch.gz.b64 | gzip --decompress > /tmp/knowledge-cycle.patch
           patch_hash="$(sha256sum /tmp/knowledge-cycle.patch | cut -d' ' -f1)"
+          echo "patch_hash=$patch_hash"
           test "$patch_hash" = "371d47cf9f3cb3e9772b60f5bb7c223a9123d810155df6bfd4cd88c060bfe650"
           git apply --check /tmp/knowledge-cycle.patch
           git apply /tmp/knowledge-cycle.patch
