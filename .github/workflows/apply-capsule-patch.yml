@@ -5,7 +5,7 @@ on:
     branches:
       - feat/intelligent-capsules
     paths:
-      - .github/capsule-changes.patch.gz.b64
+      - .github/capsule-patch-ready
 
 permissions:
   contents: write
@@ -26,10 +26,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          base64 --decode .github/capsule-changes.patch.gz.b64 | gzip --decompress > /tmp/capsule-changes.patch
+          cat .github/capsule-patch-parts/part-* | base64 --decode | gzip --decompress > /tmp/capsule-changes.patch
           git apply --check /tmp/capsule-changes.patch
           git apply /tmp/capsule-changes.patch
-          rm -f .github/capsule-changes.patch.gz.b64
+          rm -rf .github/capsule-patch-parts
+          rm -f .github/capsule-patch-ready
           rm -f .github/workflows/apply-capsule-patch.yml
 
       - name: Commit implementation
