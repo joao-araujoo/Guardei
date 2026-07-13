@@ -1,10 +1,69 @@
 name: Intelligent Capsule CI
 
 on:
-  workflow_dispatch:
+  push:
+    branches:
+      - feat/intelligent-capsules
+  pull_request:
+    branches:
+      - main
 
 jobs:
-  paused:
+  validate:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      NODE_ENV: test
+      DATABASE_URL: postgresql://guardei:guardei@localhost:5432/guardei
+      DATABASE_DIRECT_URL: postgresql://guardei:guardei@localhost:5432/guardei
+
     steps:
-      - run: echo "Validation will be re-enabled after all implementation files are published."
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Upload source snapshot
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: guardei-source-${{ github.sha }}
+          path: |
+            .
+            !.git
+            !node_modules
+            !server/node_modules
+            !dist
+          include-hidden-files: true
+          retention-days: 1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            server/package-lock.json
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Audit frontend dependencies
+        run: npm audit --audit-level=high
+
+      - name: Build frontend
+        run: npm run build
+
+      - name: Install backend dependencies
+        run: npm ci --prefix server
+
+      - name: Audit backend dependencies
+        run: npm audit --prefix server --audit-level=high
+
+      - name: Generate Prisma client
+        run: npm --prefix server run db:generate
+
+      - name: Validate backend initialization
+        run: node -e "import('./server/src/index.js').then(() => console.log('Backend initialized successfully'))"
+
+      - name: Run backend tests
+        run: npm --prefix server test
