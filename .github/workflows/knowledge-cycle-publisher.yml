@@ -6,6 +6,9 @@ on:
       - feat/knowledge-cycle
     paths:
       - .github/knowledge-cycle-patch-ready
+  pull_request:
+    branches:
+      - feat/semantic-search-learning-paths
 
 permissions:
   contents: write
