@@ -8,6 +8,9 @@ on:
     branches:
       - main
 
+permissions:
+  contents: write
+
 jobs:
   validate:
     runs-on: ubuntu-latest
@@ -16,10 +19,23 @@ jobs:
       NODE_ENV: test
       DATABASE_URL: postgresql://guardei:guardei@localhost:5432/guardei
       DATABASE_DIRECT_URL: postgresql://guardei:guardei@localhost:5432/guardei
+      NPM_CONFIG_FETCH_RETRIES: 3
+      NPM_CONFIG_FETCH_TIMEOUT: 60000
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Normalize public npm registry URLs
+        shell: bash
+        run: |
+          sed -i 's#https://packages.applied-caas-gateway1.internal.api.openai.org/artifactory/api/npm/npm-public/#https://registry.npmjs.org/#g' package-lock.json server/package-lock.json
+          if grep -R 'packages.applied-caas-gateway1.internal.api.openai.org' package-lock.json server/package-lock.json; then
+            echo 'Internal registry URL remained in a lockfile.'
+            exit 1
+          fi
 
       - name: Upload source snapshot
         if: always()
@@ -45,7 +61,7 @@ jobs:
             server/package-lock.json
 
       - name: Install frontend dependencies
-        run: npm ci
+        run: npm ci --no-audit --no-fund
 
       - name: Audit frontend dependencies
         run: npm audit --audit-level=high
@@ -54,7 +70,7 @@ jobs:
         run: npm run build
 
       - name: Install backend dependencies
-        run: npm ci --prefix server
+        run: npm ci --prefix server --no-audit --no-fund
 
       - name: Audit backend dependencies
         run: npm audit --prefix server --audit-level=high
@@ -67,3 +83,16 @@ jobs:
 
       - name: Run backend tests
         run: npm --prefix server test
+
+      - name: Persist normalized lockfiles
+        if: github.event_name == 'push' && github.actor != 'github-actions[bot]'
+        shell: bash
+        run: |
+          if git diff --quiet -- package-lock.json server/package-lock.json; then
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package-lock.json server/package-lock.json
+          git commit -m "chore: normalize npm registry URLs [skip ci]"
+          git push origin HEAD:feat/intelligent-capsules
