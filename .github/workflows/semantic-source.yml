@@ -1,27 +1,10 @@
-name: Semantic Evolution Source Snapshot
+name: Semantic Evolution Publisher
 
 on:
-  push:
-    branches:
-      - feat/semantic-search-learning-paths
-  pull_request:
-    branches:
-      - feat/intelligent-capsules
+  workflow_dispatch:
 
 jobs:
-  snapshot:
+  paused:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/upload-artifact@v4
-        with:
-          name: guardei-semantic-source-${{ github.sha }}
-          path: |
-            .
-            !.git
-            !node_modules
-            !server/node_modules
-            !dist
-          include-hidden-files: true
-          retention-days: 1
+      - run: echo "Publisher paused while the verified patch is uploaded."
