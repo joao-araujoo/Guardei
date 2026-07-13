@@ -85,7 +85,7 @@ jobs:
         run: npm --prefix server test
 
       - name: Persist normalized lockfiles
-        if: github.event_name == 'push' && github.actor != 'github-actions[bot]'
+        if: github.event_name == 'push'
         shell: bash
         run: |
           if git diff --quiet -- package-lock.json server/package-lock.json; then
