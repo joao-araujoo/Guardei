@@ -1,0 +1,43 @@
+name: Apply Intelligent Capsule Patch
+
+on:
+  push:
+    branches:
+      - feat/intelligent-capsules
+    paths:
+      - .github/capsule-changes.patch.gz.b64
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v4
+        with:
+          ref: feat/intelligent-capsules
+          fetch-depth: 0
+
+      - name: Decode and apply implementation
+        shell: bash
+        run: |
+          set -euo pipefail
+          base64 --decode .github/capsule-changes.patch.gz.b64 | gzip --decompress > /tmp/capsule-changes.patch
+          git apply --check /tmp/capsule-changes.patch
+          git apply /tmp/capsule-changes.patch
+          rm -f .github/capsule-changes.patch.gz.b64
+          rm -f .github/workflows/apply-capsule-patch.yml
+
+      - name: Commit implementation
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "feat: implement intelligent content capsules"
+          git push origin HEAD:feat/intelligent-capsules
