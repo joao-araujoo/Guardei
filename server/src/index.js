@@ -10,6 +10,11 @@ import capsuleRoutes from "./routes/capsuleRoutes.js";
 import searchRoutes from "./routes/searchRoutes.js";
 import pathRoutes from "./routes/pathRoutes.js";
 import connectionRoutes from "./routes/connectionRoutes.js";
+import reflectionRoutes from "./routes/reflectionRoutes.js";
+import cardRoutes from "./routes/cardRoutes.js";
+import applicationRoutes from "./routes/applicationRoutes.js";
+import reviewRoutes from "./routes/reviewRoutes.js";
+import knowledgeRoutes from "./routes/knowledgeRoutes.js";
 import settingsRoutes from "./routes/settingsRoutes.js";
 import videoRoutes from "./routes/videoRoutes.js";
 import { parseOrigins, securityHeaders, verifyRequestOrigin } from "./middleware/security.js";
@@ -59,10 +64,15 @@ export function createApp() {
   app.use("/api/ai", aiRoutes);
   app.use("/api/settings", settingsRoutes);
   app.use("/api/videos", capsuleRoutes);
+  app.use("/api/videos", reflectionRoutes);
   app.use("/api/videos", videoRoutes);
   app.use("/api/search", searchRoutes);
   app.use("/api/paths", pathRoutes);
   app.use("/api", connectionRoutes);
+  app.use("/api", cardRoutes);
+  app.use("/api", applicationRoutes);
+  app.use("/api/reviews", reviewRoutes);
+  app.use("/api/knowledge", knowledgeRoutes);
 
   app.use(express.static(clientDistPath));
   app.use((req, res, next) => {

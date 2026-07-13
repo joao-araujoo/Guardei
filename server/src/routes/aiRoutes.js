@@ -4,7 +4,7 @@ import { requireAuth } from "../middleware/auth.js";
 import { createRateLimiter } from "../middleware/rateLimit.js";
 import { parseAndValidateUrl } from "../security/urlSafety.js";
 import { prisma } from "../db/prisma.js";
-import { selectRelevantKnowledge, selectRelevantPaths } from "../capsules/guardinhoContext.js";
+import { selectRelevantKnowledge, selectRelevantPaths, selectKnowledgeCycleContext } from "../capsules/guardinhoContext.js";
 
 const router = express.Router();
 const aiRateLimit = createRateLimiter({ windowMs: 10 * 60 * 1000, limit: 30, keyPrefix: "ai" });
@@ -132,8 +132,13 @@ router.post("/mascot-chat", chatRateLimit, async (req, res, next) => {
       selectRelevantKnowledge(prisma, req.user.id, message, 12),
       selectRelevantPaths(prisma, req.user.id, message, 4),
     ]);
+    const knowledgeCycle = await selectKnowledgeCycleContext(prisma, req.user.id, {
+      message,
+      videoIds: relevantItems.map((item) => item.id),
+      pathIds: relevantPaths.map((path) => path.id),
+    });
     const stats = sanitizeStats(body.stats);
-    const answer = await chatWithMascotGemini({ message, messages, videos: relevantItems, paths: relevantPaths, stats });
+    const answer = await chatWithMascotGemini({ message, messages, videos: relevantItems, paths: relevantPaths, knowledgeCycle, stats });
     return res.json({ ok: true, source: process.env.GEMINI_API_KEY ? "gemini" : "local-fallback", answer });
   } catch (error) {
     return next(error);
