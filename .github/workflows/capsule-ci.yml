@@ -1,39 +1,65 @@
-name: Persist Public NPM Lockfiles
+name: Intelligent Capsule CI
 
 on:
   push:
     branches:
       - feat/intelligent-capsules
-
-permissions:
-  contents: write
+  pull_request:
+    branches:
+      - main
 
 jobs:
-  persist-lockfiles:
+  validate:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - name: Checkout implementation branch
-        uses: actions/checkout@v4
-        with:
-          ref: feat/intelligent-capsules
-          fetch-depth: 0
+    timeout-minutes: 20
+    env:
+      NODE_ENV: test
+      DATABASE_URL: postgresql://guardei:guardei@localhost:5432/guardei
+      DATABASE_DIRECT_URL: postgresql://guardei:guardei@localhost:5432/guardei
+      NPM_CONFIG_FETCH_RETRIES: 3
+      NPM_CONFIG_FETCH_TIMEOUT: 60000
 
-      - name: Normalize and publish lockfiles
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Ensure lockfiles use the public npm registry
         shell: bash
         run: |
-          set -euo pipefail
-          sed -i 's#https://packages.applied-caas-gateway1.internal.api.openai.org/artifactory/api/npm/npm-public/#https://registry.npmjs.org/#g' package-lock.json server/package-lock.json
           if grep -R 'packages.applied-caas-gateway1.internal.api.openai.org' package-lock.json server/package-lock.json; then
-            echo 'Internal registry URL remained in a lockfile.'
+            echo 'Internal registry URL found in a committed lockfile.'
             exit 1
           fi
-          if git diff --quiet -- package-lock.json server/package-lock.json; then
-            echo 'Lockfiles already use the public registry.'
-            exit 0
-          fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add package-lock.json server/package-lock.json
-          git commit -m "chore: normalize npm registry URLs [skip ci]"
-          git push origin HEAD:feat/intelligent-capsules
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            server/package-lock.json
+
+      - name: Install frontend dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Audit frontend dependencies
+        run: npm audit --audit-level=high
+
+      - name: Build frontend
+        run: npm run build
+
+      - name: Install backend dependencies
+        run: npm ci --prefix server --no-audit --no-fund
+
+      - name: Audit backend dependencies
+        run: npm audit --prefix server --audit-level=high
+
+      - name: Generate Prisma client
+        run: npm --prefix server run db:generate
+
+      - name: Validate backend initialization
+        run: node -e "import('./server/src/index.js').then(() => console.log('Backend initialized successfully'))"
+
+      - name: Run backend tests
+        run: npm --prefix server test
