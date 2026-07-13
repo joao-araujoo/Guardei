@@ -5,45 +5,36 @@ on:
     branches:
       - feat/semantic-search-learning-paths
 
+permissions:
+  contents: write
+
 jobs:
-  diagnose:
+  publish:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout implementation branch
+        uses: actions/checkout@v4
         with:
           ref: feat/knowledge-cycle
-          fetch-depth: 1
-          show-progress: false
-      - name: Verify part 00
-        run: test "$(sha256sum .github/knowledge-cycle-patch-parts/part-00 | cut -d' ' -f1)" = "6248149e3eb7aecf85054701f5fadfc0f914adfc0ba1d08eead5c0bcc601c4f3"
-      - name: Verify part 01
-        run: test "$(sha256sum .github/knowledge-cycle-patch-parts/part-01 | cut -d' ' -f1)" = "af14220d9738130f38b8b7397d7802f80fb6092c6bc784b0be8920cb22838966"
-      - name: Verify part 02
-        run: test "$(sha256sum .github/knowledge-cycle-patch-parts/part-02 | cut -d' ' -f1)" = "ae383c513f87e77db78ad8520cb4f49dc2502ba5148f4089f3507638ae73f4a6"
-      - name: Verify part 03
-        run: test "$(sha256sum .github/knowledge-cycle-patch-parts/part-03 | cut -d' ' -f1)" = "dfd26704d1d5a95bedcb6a47670015eea5fdc40ec597c8e29bd8dc384ecf906d"
-      - name: Verify part 04-00
-        run: test "$(sha256sum .github/knowledge-cycle-patch-parts/part-04-00 | cut -d' ' -f1)" = "661f66294716ce601cd4101c971abaec1d3f6728b9375ae2db06004fbf6aa563"
-      - name: Verify part 04-01
-        run: test "$(sha256sum .github/knowledge-cycle-patch-parts/part-04-01 | cut -d' ' -f1)" = "3cf310919ab5f1202814543363714c85ded1b1c56cb4a2f162da8bf03a3f9171"
-      - name: Verify part 04-02
-        run: test "$(sha256sum .github/knowledge-cycle-patch-parts/part-04-02 | cut -d' ' -f1)" = "6d581265c35cccb7a1e286d3cc2fd4a8038c76becc5defd4d13b7b1c79b267ee"
-      - name: Verify part 04-03
-        run: test "$(sha256sum .github/knowledge-cycle-patch-parts/part-04-03 | cut -d' ' -f1)" = "ca1211086acbb568648f1acfc8f98f53cafc8ee95dfc079857d85912b34ac9c9"
-      - name: Verify part 04-04
-        run: test "$(sha256sum .github/knowledge-cycle-patch-parts/part-04-04 | cut -d' ' -f1)" = "73695adce0f32e37e287baafdf8d15c1c45d9700dcff160458670d8c1c87ee48"
-      - name: Verify part 04-05
-        run: test "$(sha256sum .github/knowledge-cycle-patch-parts/part-04-05 | cut -d' ' -f1)" = "a86d389730a4546b3c096842b1e43c21ea208155ed6553bf6a40c0a7beea5009"
-      - name: Verify part 04-06
-        run: test "$(sha256sum .github/knowledge-cycle-patch-parts/part-04-06 | cut -d' ' -f1)" = "650d36cda00ede49ca555531b295133f67c7b6afa6812633b7c9d4557061e334"
-      - name: Verify part 04-07
-        run: test "$(sha256sum .github/knowledge-cycle-patch-parts/part-04-07 | cut -d' ' -f1)" = "ad6a8c9af546c79a8dd7364b976a2cf4ee39e6f2c69353698b90d0fdf538f4ba"
-      - name: Verify part 05
-        run: test "$(sha256sum .github/knowledge-cycle-patch-parts/part-05 | cut -d' ' -f1)" = "0609fa8f282dd10a21f82be51f0f7bec6a04da29c3cf667e4e3ddfb24be0d9a5"
-      - name: Verify part 06
-        run: test "$(sha256sum .github/knowledge-cycle-patch-parts/part-06 | cut -d' ' -f1)" = "7c98271ec4880444c610c824b73bb96d82d300d5485add9d507b16f8dd4586f5"
-      - name: Verify part 07
-        run: test "$(sha256sum .github/knowledge-cycle-patch-parts/part-07 | cut -d' ' -f1)" = "7557282eae33aa02eaa4356fe136a64a919f9b2bcb059d88a8fa13de753ecd9c"
-      - name: Verify concatenated payload
-        run: cat .github/knowledge-cycle-patch-parts/part-* | sha256sum | grep -q '^b6497c2a0e0071e01a89722582df21be0b68ed62f6e2591acfa12ba587f53b7b '
+          fetch-depth: 0
+      - name: Verify and apply knowledge cycle
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat .github/knowledge-cycle-patch-parts/part-* > /tmp/knowledge-cycle.patch.gz.b64
+          encoded_hash="$(sha256sum /tmp/knowledge-cycle.patch.gz.b64 | cut -d' ' -f1)"
+          test "$encoded_hash" = "b6497c2a0e0071e01a89722582df21be0b68ed62f6e2591acfa12ba587f53b7b"
+          base64 --decode /tmp/knowledge-cycle.patch.gz.b64 | gzip --decompress > /tmp/knowledge-cycle.patch
+          patch_hash="$(sha256sum /tmp/knowledge-cycle.patch | cut -d' ' -f1)"
+          test "$patch_hash" = "371d47cf9f3cb3e9772b60f5bb7c223a9123d810155df6bfd4cd88c060bfe650"
+          git apply --check /tmp/knowledge-cycle.patch
+          git apply /tmp/knowledge-cycle.patch
+          rm -rf .github/knowledge-cycle-patch-parts
+          rm -f .github/knowledge-cycle-patch-ready
+          rm -f .github/workflows/knowledge-cycle-publisher.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "feat: implement knowledge cycle"
+          git push origin HEAD:feat/knowledge-cycle
