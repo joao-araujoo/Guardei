@@ -4,6 +4,7 @@ import { buildAutoVideo } from './lib/aiClassifier.js';
 import { PLATFORM_OPTIONS, getPlatformMeta } from './lib/platforms.js';
 import { createRepository, exportVault, importVaultPayload } from './lib/storage.js';
 import { extractSupportedVideoUrl, getSharePayloadFromUrl } from './lib/tiktok.js';
+import CapsulePanel from './features/capsules/CapsulePanel.jsx';
 import guardeiLogo from './assets/icons/guardei-logo.png';
 import guardeiMascot from './assets/mascot/guardei-mascot.png';
 
@@ -55,7 +56,7 @@ function IconSymbol({ name, size = 'normal' }) {
 }
 
 const repository = createRepository();
-const DEFAULT_FILTERS = { query: '', category: 'all', status: 'active', platform: 'all' };
+const DEFAULT_FILTERS = { query: '', category: 'all', status: 'active', platform: 'all', capsule: 'all' };
 const DEFAULT_RECOMMENDATION = { time: 'any', mood: 'any', platform: 'all' };
 const ACHIEVEMENTS = [
   { id: 'first-save', icon: 'bookmark', tone: 'green', title: 'Primeiro Cofrinho', text: 'Salvar o primeiro item.', test: s => s.total >= 1 },
@@ -165,6 +166,10 @@ export default function App() {
       if (filters.status === 'active' && video.status === 'arquivado') return false;
       if (filters.status !== 'active' && filters.status !== 'all' && video.status !== filters.status) return false;
       if (filters.platform !== 'all' && (video.platform || 'tiktok') !== filters.platform) return false;
+      if (filters.capsule === 'with' && !video.capsule) return false;
+      if (filters.capsule === 'without' && video.capsule) return false;
+      if (filters.capsule === 'complete' && video.capsule?.status !== 'completed') return false;
+      if (filters.capsule === 'limited' && video.capsule?.status !== 'limited') return false;
       if (!query) return true;
       const haystack = [video.titleCustom, video.titleAi, video.titleOriginal, video.authorName, video.category, video.reason, video.note, video.summary, video.bestFor, video.watchWhen, video.mood, video.effort, video.platform, ...(video.tags || [])].join(' ').toLowerCase();
       return haystack.includes(query);
@@ -377,6 +382,10 @@ export default function App() {
     const next = videos.map(video => video.id === id ? { ...video, ...patch, updatedAt: new Date().toISOString() } : video);
     setVideos(next);
     return updated;
+  }
+
+  function updateVideoCapsule(id, capsule) {
+    setVideos(current => current.map(video => video.id === id ? { ...video, capsule } : video));
   }
 
   async function deleteVideo(id) {
@@ -651,6 +660,8 @@ export default function App() {
           onDelete={() => deleteVideo(selectedVideo.id)}
           onOpen={() => openVideo(selectedVideo)}
           onMarkWatched={markWatched}
+          onCapsuleChange={capsule => updateVideoCapsule(selectedVideo.id, capsule)}
+          onNotify={showToast}
         />
       )}
 
@@ -791,13 +802,36 @@ function HomeView({ videos, dailyQueue, inboxVideos, importantVideos, appliedVid
               {PLATFORM_OPTIONS.map(platform => <option key={platform.id} value={platform.id}>{platform.label}</option>)}
             </select>
           </div>
-          <div className="roulette-card" onClick={() => randomVideo(recommendation)} role="button" tabIndex={0}>
+          <div
+            className="roulette-card"
+            onClick={() => randomVideo(recommendation)}
+            onKeyDown={event => {
+              if (!['Enter', ' '].includes(event.key)) return;
+              event.preventDefault();
+              randomVideo(recommendation);
+            }}
+            role="button"
+            tabIndex={0}
+            aria-label="Sortear uma recomendação do acervo"
+          >
             <IconSymbol name="star" />
             <strong>Deixa a IA escolher</strong>
             <small>baseado em tempo livre, humor e energia mental</small>
           </div>
         </Panel>
       </div>
+
+      {videos.some(video => video.capsule && ['completed', 'limited'].includes(video.capsule.status)) && (
+        <Panel title="Conhecimento recém-extraído">
+          <div className="capsule-preview-list">
+            {[...videos]
+              .filter(video => video.capsule && ['completed', 'limited'].includes(video.capsule.status))
+              .sort((a, b) => new Date(b.capsule.generatedAt || b.capsule.updatedAt || 0) - new Date(a.capsule.generatedAt || a.capsule.updatedAt || 0))
+              .slice(0, 3)
+              .map(video => <CapsulePreviewRow key={video.id} video={video} onClick={() => setSelectedId(video.id)} />)}
+          </div>
+        </Panel>
+      )}
 
       <Panel title="Fontes favoritas">
         <div className="platform-wall">
@@ -946,6 +980,14 @@ function LibraryView({ videos, total, filters, setFilters, setSelectedId, delete
             <PlatformLogo platform={platform.id} compact /> {platform.label}
           </FilterChip>
         ))}
+      </div>
+
+      <div className="filter-strip compact" aria-label="Filtros de cápsula">
+        <FilterChip active={filters.capsule === 'all'} onClick={() => setFilters({ ...filters, capsule: 'all' })}>Todas as análises</FilterChip>
+        <FilterChip active={filters.capsule === 'with'} onClick={() => setFilters({ ...filters, capsule: 'with' })}>Com cápsula</FilterChip>
+        <FilterChip active={filters.capsule === 'without'} onClick={() => setFilters({ ...filters, capsule: 'without' })}>Sem cápsula</FilterChip>
+        <FilterChip active={filters.capsule === 'complete'} onClick={() => setFilters({ ...filters, capsule: 'complete' })}>Análise completa</FilterChip>
+        <FilterChip active={filters.capsule === 'limited'} onClick={() => setFilters({ ...filters, capsule: 'limited' })}>Análise limitada</FilterChip>
       </div>
 
       {videos.length ? (
@@ -1154,6 +1196,19 @@ function StatCard({ icon, label, value, tone = '' }) {
   );
 }
 
+function CapsulePreviewRow({ video, onClick }) {
+  return (
+    <button className="capsule-preview-row" onClick={onClick}>
+      <span className={`capsule-preview-icon ${video.capsule?.status || ''}`}><IconSymbol name="brain" /></span>
+      <span>
+        <strong>{getDisplayTitle(video)}</strong>
+        <small>{video.capsule?.summary || 'Abra para ver a cápsula.'}</small>
+      </span>
+      <em>{video.capsule?.status === 'limited' ? 'Limitada' : 'Completa'}</em>
+    </button>
+  );
+}
+
 function CompactVideoRow({ video, onClick }) {
   const category = CATEGORY_BY_ID[video.category] || CATEGORY_BY_ID.misc;
   return (
@@ -1173,14 +1228,26 @@ function VideoCard({ video, onClick, onDelete, big = false }) {
   const category = CATEGORY_BY_ID[video.category] || CATEGORY_BY_ID.misc;
   const platform = getPlatformMeta(video.platform);
   return (
-    <article className={`video-card ${big ? 'big' : ''}`} onClick={onClick}>
+    <article
+      className={`video-card ${big ? 'big' : ''}`}
+      role="button"
+      tabIndex={0}
+      aria-label={`Abrir detalhes de ${getDisplayTitle(video)}`}
+      onClick={onClick}
+      onKeyDown={event => {
+        if (event.target !== event.currentTarget || !['Enter', ' '].includes(event.key)) return;
+        event.preventDefault();
+        onClick();
+      }}
+    >
       <div className="thumb" style={{ background: video.thumbnailUrl ? '#111' : category.accent }}>
         {video.thumbnailUrl ? <img src={video.thumbnailUrl} alt="" loading="lazy" /> : <IconSymbol name={category.icon} />}
         <div className="thumb-overlay" />
         <span className="cat-badge"><IconSymbol name={category.icon} /> {category.label}</span>
         <span className={`priority ${video.priority}`}>{video.priority}</span>
         <span className="platform-badge"><PlatformLogo platform={platform.id} compact /> {platform.label}</span>
-        {onDelete && <button className="delete-btn" onClick={event => { event.stopPropagation(); onDelete(); }}>×</button>}
+        {video.capsule && <span className={`capsule-card-badge ${video.capsule.status}`}><IconSymbol name="brain" /> Cápsula</span>}
+        {onDelete && <button type="button" className="delete-btn" aria-label={`Excluir ${getDisplayTitle(video)}`} onClick={event => { event.stopPropagation(); onDelete(); }}>×</button>}
       </div>
       <div className="video-body">
         <h3>{getDisplayTitle(video)}</h3>
@@ -1202,10 +1269,13 @@ function VideoCard({ video, onClick, onDelete, big = false }) {
   );
 }
 
-function VideoModal({ video, onClose, onUpdate, onDelete, onOpen, onMarkWatched }) {
+function VideoModal({ video, onClose, onUpdate, onDelete, onOpen, onMarkWatched, onCapsuleChange, onNotify }) {
   const [draft, setDraft] = useState(video);
   const [tagText, setTagText] = useState((video.tags || []).join(', '));
   const [watchedMinutes, setWatchedMinutes] = useState(Math.round((video.watchedSeconds || 0) / 60) || 5);
+  const dialogRef = useRef(null);
+  const closeButtonRef = useRef(null);
+  const restoreFocusRef = useRef(null);
   const category = CATEGORY_BY_ID[draft.category] || CATEGORY_BY_ID.misc;
   const platform = getPlatformMeta(draft.platform);
 
@@ -1213,7 +1283,36 @@ function VideoModal({ video, onClose, onUpdate, onDelete, onOpen, onMarkWatched 
     setDraft(video);
     setTagText((video.tags || []).join(', '));
     setWatchedMinutes(Math.round((video.watchedSeconds || 0) / 60) || 5);
-  }, [video]);
+  }, [video.id]);
+
+  useEffect(() => {
+    restoreFocusRef.current = document.activeElement;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    closeButtonRef.current?.focus();
+
+    function handleKeyDown(event) {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        onClose();
+        return;
+      }
+      if (event.key !== 'Tab') return;
+      const focusable = dialogRef.current?.querySelectorAll('button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])');
+      if (!focusable?.length) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+    }
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+      document.body.style.overflow = previousOverflow;
+      restoreFocusRef.current?.focus?.();
+    };
+  }, []);
 
   function patch(value) {
     setDraft(current => ({ ...current, ...value }));
@@ -1241,8 +1340,8 @@ function VideoModal({ video, onClose, onUpdate, onDelete, onOpen, onMarkWatched 
 
   return (
     <div className="modal-backdrop" onMouseDown={event => event.target === event.currentTarget && onClose()}>
-      <div className="modal-card">
-        <button className="modal-close" onClick={onClose}>×</button>
+      <div className="modal-card" ref={dialogRef} role="dialog" aria-modal="true" aria-label="Detalhes do item salvo">
+        <button className="modal-close" ref={closeButtonRef} onClick={onClose} aria-label="Fechar detalhes">×</button>
         <div className="modal-hero" style={{ background: draft.thumbnailUrl ? '#111' : category.accent }}>
           {draft.thumbnailUrl ? <img src={draft.thumbnailUrl} alt="" /> : <IconSymbol name={category.icon} size="large" />}
         </div>
@@ -1323,16 +1422,19 @@ function VideoModal({ video, onClose, onUpdate, onDelete, onOpen, onMarkWatched 
             <input
               value={draft.bestFor || ''}
               onChange={event => patch({ bestFor: event.target.value })}
+              aria-label="Ideal para"
               placeholder="Ideal para..."
             />
             <input
               value={draft.watchWhen || ''}
               onChange={event => patch({ watchWhen: event.target.value })}
+              aria-label="Assistir quando"
               placeholder="Assistir quando..."
             />
             <input
               value={draft.sourceName || ''}
               onChange={event => patch({ sourceName: event.target.value })}
+              aria-label="Fonte do conteúdo"
               placeholder="Fonte do anexo (canal, perfil, curso...)"
             />
             <input
@@ -1340,6 +1442,7 @@ function VideoModal({ video, onClose, onUpdate, onDelete, onOpen, onMarkWatched 
               min="0"
               value={watchedMinutes}
               onChange={event => setWatchedMinutes(event.target.value)}
+              aria-label="Tempo visto em minutos"
               placeholder="Tempo visto em minutos"
             />
           </div>
@@ -1351,6 +1454,13 @@ function VideoModal({ video, onClose, onUpdate, onDelete, onOpen, onMarkWatched 
             {draft.bestFor && <strong>{draft.bestFor}</strong>}
             {draft.watchWhen && <small>{draft.watchWhen}</small>}
           </div>
+
+          <CapsulePanel
+            videoId={video.id}
+            initialCapsule={video.capsule}
+            onCapsuleChange={onCapsuleChange}
+            onNotify={onNotify}
+          />
 
           <div className="modal-actions">
             <button className="primary-btn" onClick={onOpen}>Abrir Link</button>
@@ -1473,17 +1583,8 @@ async function chatWithMascot({ message, messages, videos, stats }) {
         minutes: Math.round(stats.minutes),
         inbox: stats.inbox,
         important: stats.important,
-        watchedCategories: stats.watchedCategories
-      },
-      videos: videos.slice(0, 30).map(video => ({
-        title: getDisplayTitle(video),
-        category: CATEGORY_BY_ID[video.category]?.label || 'Geral',
-        status: STATUS[video.status]?.label || video.status,
-        mood: video.mood,
-        durationBucket: video.durationBucket,
-        reason: getReason(video.reason),
-        tags: video.tags || []
-      }))
+        active: stats.active
+      }
     })
   });
   if (!response.ok) throw new Error('Falha no chat');

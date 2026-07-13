@@ -11,6 +11,7 @@ router.get("/", async (req, res, next) => {
     const items = await prisma.video.findMany({
       where: { userId: req.user.id },
       orderBy: { createdAt: "desc" },
+      include: capsuleSummaryInclude,
     });
     res.json(items.map(fromDbVideo));
   } catch (error) {
@@ -46,7 +47,7 @@ router.patch("/:id", async (req, res, next) => {
     });
     if (!result.count) return res.status(404).json({ ok: false, message: "Video nao encontrado." });
 
-    const updated = await prisma.video.findUnique({ where: { id: req.params.id } });
+    const updated = await prisma.video.findUnique({ where: { id: req.params.id }, include: capsuleSummaryInclude });
     res.json(fromDbVideo(updated));
   } catch (error) {
     next(error);
@@ -81,6 +82,7 @@ router.post("/import", async (req, res, next) => {
     const all = await prisma.video.findMany({
       where: { userId: req.user.id },
       orderBy: { createdAt: "desc" },
+      include: capsuleSummaryInclude,
     });
     res.json(all.map(fromDbVideo));
   } catch (error) {
@@ -163,6 +165,20 @@ function toDbVideoPatch(patch) {
   return data;
 }
 
+const capsuleSummaryInclude = {
+  capsule: {
+    select: {
+      id: true,
+      status: true,
+      coverage: true,
+      summary: true,
+      aiConfidence: true,
+      generatedAt: true,
+      updatedAt: true,
+    },
+  },
+};
+
 function fromDbVideo(video) {
   const { userId, ...publicVideo } = video;
   return {
@@ -171,6 +187,11 @@ function fromDbVideo(video) {
     updatedAt: video.updatedAt?.toISOString?.() || video.updatedAt,
     reviewedAt: video.reviewedAt?.toISOString?.() || video.reviewedAt,
     watchedAt: video.watchedAt?.toISOString?.() || video.watchedAt,
+    capsule: video.capsule ? {
+      ...video.capsule,
+      generatedAt: video.capsule.generatedAt?.toISOString?.() || video.capsule.generatedAt,
+      updatedAt: video.capsule.updatedAt?.toISOString?.() || video.capsule.updatedAt,
+    } : null,
     ai: {
       engine: video.aiEngine,
       confidence: video.aiConfidence,

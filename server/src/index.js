@@ -6,64 +6,86 @@ import { fileURLToPath } from "url";
 import authRoutes from "./routes/authRoutes.js";
 import achievementRoutes from "./routes/achievementRoutes.js";
 import aiRoutes from "./routes/aiRoutes.js";
+import capsuleRoutes from "./routes/capsuleRoutes.js";
 import settingsRoutes from "./routes/settingsRoutes.js";
 import videoRoutes from "./routes/videoRoutes.js";
+import { parseOrigins, securityHeaders, verifyRequestOrigin } from "./middleware/security.js";
+import { safeLog } from "./security/safeLog.js";
 
 dotenv.config();
 
-const app = express();
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const clientDistPath = path.resolve(__dirname, "../../dist");
+export function createApp() {
+  const app = express();
+  const __filename = fileURLToPath(import.meta.url);
+  const __dirname = path.dirname(__filename);
+  const clientDistPath = path.resolve(__dirname, "../../dist");
+  const corsOrigins = parseOrigins(process.env.CORS_ORIGIN);
 
-const PORT = Number(process.env.PORT || 3333);
-const CORS_ORIGIN = process.env.CORS_ORIGIN || "http://localhost:5173";
-
-app.use(
-  cors({
-    origin: CORS_ORIGIN,
+  app.set("trust proxy", 1);
+  app.disable("x-powered-by");
+  app.use(securityHeaders);
+  app.use(cors({
+    origin(origin, callback) {
+      if (!origin || corsOrigins.includes(origin.replace(/\/$/, ""))) return callback(null, true);
+      return callback(new Error("CORS_ORIGIN_BLOCKED"));
+    },
     credentials: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
-  })
-);
+  }));
+  app.use(express.json({ limit: "256kb", strict: true }));
+  app.use(verifyRequestOrigin);
 
-app.use(express.json({ limit: "2mb" }));
-
-app.get("/api", (req, res) => {
-  res.json({
-    ok: true,
-    name: "Guardei API",
-    ai_provider: process.env.AI_PROVIDER || "local",
+  app.get("/api", (_req, res) => {
+    res.json({ ok: true, name: "Guardei API", ai_provider: process.env.AI_PROVIDER || "local" });
   });
-});
 
-app.get("/api/health", (req, res) => {
-  res.json({
-    ok: true,
-    status: "online",
-    ai_provider: process.env.GEMINI_API_KEY ? "gemini" : "local-fallback",
+  app.get("/api/health", (_req, res) => {
+    res.json({ ok: true, status: "online", ai_provider: process.env.GEMINI_API_KEY ? "gemini" : "local-fallback" });
   });
-});
 
-app.use("/api/auth", authRoutes);
-app.use("/api/achievements", achievementRoutes);
-app.use("/api/ai", aiRoutes);
-app.use("/api/settings", settingsRoutes);
-app.use("/api/videos", videoRoutes);
+  app.use("/api/auth", authRoutes);
+  app.use("/api/achievements", achievementRoutes);
+  app.use("/api/ai", aiRoutes);
+  app.use("/api/settings", settingsRoutes);
+  app.use("/api/videos", capsuleRoutes);
+  app.use("/api/videos", videoRoutes);
 
-app.use(express.static(clientDistPath));
+  app.use(express.static(clientDistPath));
+  app.use((req, res, next) => {
+    if (req.method !== "GET" || req.path.startsWith("/api/")) return next();
+    return res.sendFile(path.join(clientDistPath, "index.html"));
+  });
 
-app.use((req, res, next) => {
-  if (req.method !== "GET" || req.path.startsWith("/api/")) return next();
-  res.sendFile(path.join(clientDistPath, "index.html"));
-});
+  app.use((req, res) => {
+    if (req.path.startsWith("/api/")) return res.status(404).json({ ok: false, message: "Rota nao encontrada." });
+    return res.status(404).end();
+  });
 
-app.use((error, _req, res, _next) => {
-  console.error(error);
-  res.status(500).json({ ok: false, message: "Erro interno." });
-});
+  app.use((error, _req, res, _next) => {
+    const isPayloadError = error?.type === "entity.too.large" || error instanceof SyntaxError;
+    const isCorsError = error?.message === "CORS_ORIGIN_BLOCKED";
+    safeLog("error", "Erro de requisicao", { name: error?.name, code: error?.code, message: error?.message });
+    if (isPayloadError) return res.status(400).json({ ok: false, code: "INVALID_PAYLOAD", message: "Payload invalido ou muito grande." });
+    if (isCorsError) return res.status(403).json({ ok: false, code: "CORS_BLOCKED", message: "Origem nao permitida." });
+    const status = Number(error?.status) || 500;
+    if (status >= 400 && status < 500) {
+      return res.status(status).json({
+        ok: false,
+        code: /^[A-Z0-9_]{3,64}$/.test(String(error?.code || "")) ? error.code : "INVALID_REQUEST",
+        message: String(error?.message || "Requisicao invalida.").slice(0, 300),
+      });
+    }
+    return res.status(500).json({ ok: false, code: "INTERNAL_ERROR", message: "Nao foi possivel concluir a solicitacao." });
+  });
 
-app.listen(PORT, () => {
-  console.log(`Guardei API rodando em http://localhost:${PORT}`);
-});
+  return app;
+}
+
+const app = createApp();
+if (process.env.NODE_ENV !== "test") {
+  const port = Number(process.env.PORT || 3333);
+  app.listen(port, () => console.log(`Guardei API rodando em http://localhost:${port}`));
+}
+
+export default app;

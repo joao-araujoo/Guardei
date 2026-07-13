@@ -1,59 +1,57 @@
 import express from "express";
 import { chatWithMascotGemini, classifyTikTokWithGemini, classifyVideoWithGemini } from "../ai/geminiClassifier.js";
+import { requireAuth } from "../middleware/auth.js";
+import { createRateLimiter } from "../middleware/rateLimit.js";
+import { parseAndValidateUrl } from "../security/urlSafety.js";
+import { prisma } from "../db/prisma.js";
+import { selectRelevantKnowledge } from "../capsules/guardinhoContext.js";
 
 const router = express.Router();
+const aiRateLimit = createRateLimiter({ windowMs: 10 * 60 * 1000, limit: 30, keyPrefix: "ai" });
+const chatRateLimit = createRateLimiter({ windowMs: 10 * 60 * 1000, limit: 20, keyPrefix: "ai-chat" });
+
+router.use(requireAuth, aiRateLimit);
 
 async function getOEmbed(url, platform) {
   if (!["youtube", "tiktok"].includes(platform)) return null;
-
-  const endpoint =
-    platform === "youtube"
-      ? `https://www.youtube.com/oembed?format=json&url=${encodeURIComponent(url)}`
-      : `https://www.tiktok.com/oembed?url=${encodeURIComponent(url)}`;
+  const endpoint = platform === "youtube"
+    ? `https://www.youtube.com/oembed?format=json&url=${encodeURIComponent(url)}`
+    : `https://www.tiktok.com/oembed?url=${encodeURIComponent(url)}`;
 
   try {
     const response = await fetch(endpoint, {
       method: "GET",
       headers: { Accept: "application/json" },
+      signal: AbortSignal.timeout(6_000),
     });
-
     if (!response.ok) return null;
     const data = await response.json();
-
     return {
-      title: data.title || "",
-      author: data.author_name || "",
-      author_url: data.author_url || "",
-      thumbnail_url: data.thumbnail_url || "",
-      html: data.html || "",
-      provider_name: data.provider_name || (platform === "youtube" ? "YouTube" : "TikTok"),
+      title: String(data.title || "").slice(0, 500),
+      author: String(data.author_name || "").slice(0, 200),
+      author_url: String(data.author_url || "").slice(0, 1000),
+      thumbnail_url: String(data.thumbnail_url || "").slice(0, 1000),
+      provider_name: String(data.provider_name || (platform === "youtube" ? "YouTube" : "TikTok")).slice(0, 100),
     };
-  } catch (error) {
-    console.error(`Erro ao buscar oEmbed de ${platform}:`, error);
+  } catch {
     return null;
   }
 }
 
-router.post("/enrich-video", async (req, res) => {
+router.post("/enrich-video", async (req, res, next) => {
   try {
-    const { url, title = "", text = "", description = "", platform: incomingPlatform = "" } = req.body || {};
-
-    if (!url || typeof url !== "string") {
-      return res.status(400).json({ ok: false, message: "URL do link e obrigatoria." });
-    }
-
+    const body = readObject(req.body);
+    const url = validatePublicInputUrl(readString(body.url, 2_000, "url", true));
+    const title = readString(body.title, 500, "title");
+    const text = readString(body.text, 10_000, "text");
+    const description = readString(body.description, 10_000, "description");
+    const incomingPlatform = readString(body.platform, 40, "platform");
     const platform = detectPlatform(url, incomingPlatform);
     const oembed = await getOEmbed(url, platform);
     const finalTitle = title || oembed?.title || "";
-    const finalDescription = [description, text].filter(Boolean).join("\n").trim();
+    const finalDescription = [description, text].filter(Boolean).join("\n").trim().slice(0, 12_000);
     const author = oembed?.author || "";
-    const classification = await classifyVideoWithGemini({
-      url,
-      title: finalTitle,
-      description: finalDescription,
-      author,
-      platform,
-    });
+    const classification = await classifyVideoWithGemini({ url, title: finalTitle, description: finalDescription, author, platform });
 
     return res.json({
       ok: true,
@@ -91,33 +89,21 @@ router.post("/enrich-video", async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Erro na rota /enrich-video:", error);
-    return res.status(500).json({ ok: false, message: "Erro ao enriquecer link." });
+    if (error?.status === 400) return res.status(400).json({ ok: false, message: error.message });
+    return next(error);
   }
 });
 
-router.post("/classify-tiktok", async (req, res) => {
+router.post("/classify-tiktok", async (req, res, next) => {
   try {
-    const { url, title = "", description = "" } = req.body || {};
-
-    if (!url || typeof url !== "string") {
-      return res.status(400).json({
-        ok: false,
-        message: "URL do TikTok e obrigatoria.",
-      });
-    }
-
+    const body = readObject(req.body);
+    const url = validatePublicInputUrl(readString(body.url, 2_000, "url", true));
+    const title = readString(body.title, 500, "title");
+    const description = readString(body.description, 10_000, "description");
     const oembed = await getOEmbed(url, "tiktok");
     const finalTitle = title || oembed?.title || "";
     const author = oembed?.author || "";
-
-    const ai = await classifyTikTokWithGemini({
-      url,
-      title: finalTitle,
-      description,
-      author,
-    });
-
+    const ai = await classifyTikTokWithGemini({ url, title: finalTitle, description, author });
     return res.json({
       ok: true,
       source: process.env.GEMINI_API_KEY ? "gemini" : "local-fallback",
@@ -132,44 +118,80 @@ router.post("/classify-tiktok", async (req, res) => {
       ai,
     });
   } catch (error) {
-    console.error("Erro na rota /classify-tiktok:", error);
-
-    return res.status(500).json({
-      ok: false,
-      message: "Erro ao classificar video.",
-    });
+    if (error?.status === 400) return res.status(400).json({ ok: false, message: error.message });
+    return next(error);
   }
 });
 
-router.post("/mascot-chat", async (req, res) => {
+router.post("/mascot-chat", chatRateLimit, async (req, res, next) => {
   try {
-    const { message = "", messages = [], videos = [], stats = {} } = req.body || {};
-    if (!message || typeof message !== "string") {
-      return res.status(400).json({ ok: false, message: "Mensagem obrigatoria." });
-    }
-
-    const answer = await chatWithMascotGemini({
-      message,
-      messages: Array.isArray(messages) ? messages : [],
-      videos: Array.isArray(videos) ? videos : [],
-      stats,
-    });
-
-    return res.json({
-      ok: true,
-      source: process.env.GEMINI_API_KEY ? "gemini" : "local-fallback",
-      answer,
-    });
+    const body = readObject(req.body);
+    const message = readString(body.message, 1_200, "message", true);
+    const messages = readMessages(body.messages);
+    const relevantItems = await selectRelevantKnowledge(prisma, req.user.id, message, 12);
+    const stats = sanitizeStats(body.stats);
+    const answer = await chatWithMascotGemini({ message, messages, videos: relevantItems, stats });
+    return res.json({ ok: true, source: process.env.GEMINI_API_KEY ? "gemini" : "local-fallback", answer });
   } catch (error) {
-    console.error("Erro na rota /mascot-chat:", error);
-    return res.status(500).json({ ok: false, message: "Erro ao conversar com mascote." });
+    return next(error);
   }
 });
+
+function validatePublicInputUrl(value) {
+  if (!value || typeof value !== "string") return "";
+  return parseAndValidateUrl(value).toString();
+}
+
+function readObject(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw inputError("O payload deve ser um objeto JSON.");
+  return value;
+}
+
+function readString(value, max, field, required = false) {
+  if (value === undefined || value === null || value === "") {
+    if (required) throw inputError(`${field} e obrigatorio.`);
+    return "";
+  }
+  if (typeof value !== "string") throw inputError(`${field} deve ser um texto.`);
+  const clean = value.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, "").trim();
+  if (clean.length > max) throw inputError(`${field} excede o limite permitido.`);
+  if (required && !clean) throw inputError(`${field} e obrigatorio.`);
+  return clean;
+}
+
+function readMessages(value) {
+  if (value === undefined) return [];
+  if (!Array.isArray(value)) throw inputError("messages deve ser uma lista.");
+  return value.slice(-8).map((item) => {
+    if (!item || typeof item !== "object" || Array.isArray(item)) throw inputError("Historico de mensagens invalido.");
+    return {
+      role: item.role === "user" ? "user" : "assistant",
+      text: readString(item.text, 500, "messages.text"),
+    };
+  });
+}
+
+function sanitizeStats(value = {}) {
+  if (value === undefined || value === null) value = {};
+  if (typeof value !== "object" || Array.isArray(value)) throw inputError("stats deve ser um objeto.");
+  return Object.fromEntries(["total", "watched", "minutes", "active", "inbox", "important"].map((key) => {
+    const number = value[key] === undefined ? 0 : Number(value[key]);
+    if (!Number.isFinite(number)) throw inputError(`stats.${key} deve ser numerico.`);
+    return [key, Math.max(0, Math.min(number, 10_000_000))];
+  }));
+}
+
+function inputError(message) {
+  const error = new Error(message);
+  error.status = 400;
+  error.code = "INVALID_PAYLOAD";
+  return error;
+}
 
 function detectPlatform(url, fallback = "") {
   const source = `${url} ${fallback}`.toLowerCase();
   if (source.includes("youtube.com") || source.includes("youtu.be")) return "youtube";
-  if (source.includes("tiktok.com") || source.includes("vm.tiktok.com") || source.includes("vt.tiktok.com")) return "tiktok";
+  if (source.includes("tiktok.com")) return "tiktok";
   if (source.includes("twitter.com") || source.includes("x.com")) return "twitter";
   if (source.includes("instagram.com")) return "instagram";
   if (source.includes("spotify.com")) return "spotify";
@@ -185,23 +207,7 @@ function detectPlatform(url, fallback = "") {
 }
 
 function platformLabel(platform) {
-  const labels = {
-    youtube: "YouTube",
-    tiktok: "TikTok",
-    twitter: "X/Twitter",
-    instagram: "Instagram",
-    spotify: "Spotify",
-    pinterest: "Pinterest",
-    reddit: "Reddit",
-    linkedin: "LinkedIn",
-    substack: "Substack",
-    medium: "Medium",
-    github: "GitHub",
-    netflix: "Netflix",
-    twitch: "Twitch",
-    web: "Internet",
-  };
-  return labels[platform] || "Internet";
+  return { youtube: "YouTube", tiktok: "TikTok", twitter: "X/Twitter", instagram: "Instagram", spotify: "Spotify", pinterest: "Pinterest", reddit: "Reddit", linkedin: "LinkedIn", substack: "Substack", medium: "Medium", github: "GitHub", netflix: "Netflix", twitch: "Twitch", web: "Internet" }[platform] || "Internet";
 }
 
 function extractVideoId(url, platform) {
@@ -214,9 +220,7 @@ function extractVideoId(url, platform) {
       const marker = ["shorts", "embed", "live"].find((item) => parts.includes(item));
       return marker ? parts[parts.indexOf(marker) + 1] || "" : "";
     }
-
-    const match = parsed.pathname.match(/\/video\/(\d+)/);
-    return match?.[1] || parsed.pathname.split("/").filter(Boolean).slice(-1)[0] || "";
+    return parsed.pathname.match(/\/video\/(\d+)/)?.[1] || parsed.pathname.split("/").filter(Boolean).slice(-1)[0] || "";
   } catch {
     return "";
   }

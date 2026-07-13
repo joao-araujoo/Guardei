@@ -23,6 +23,22 @@ enum VideoPriority {
   alta
 }
 
+enum CapsuleStatus {
+  idle
+  extracting
+  generating
+  completed
+  limited
+  failed
+}
+
+enum CapsuleCoverage {
+  full_content
+  user_content
+  metadata_only
+  partial_content
+}
+
 model Video {
   id                String        @id @default(cuid())
   userId            String?
@@ -69,6 +85,7 @@ model Video {
   updatedAt         DateTime      @updatedAt
   user              User?         @relation(fields: [userId], references: [id], onDelete: Cascade)
   revisions         VideoRevision[]
+  capsule           ContentCapsule?
 
   @@unique([userId, url])
   @@index([userId])
@@ -89,6 +106,7 @@ model User {
   videos       Video[]
   settings     UserSettings?
   achievements UserAchievement[]
+  capsules     ContentCapsule[]
 }
 
 model UserSettings {
@@ -126,4 +144,39 @@ model UserAchievement {
   @@unique([userId, achievementId])
   @@index([userId])
   @@index([achievementId])
+}
+
+
+model ContentCapsule {
+  id                    String          @id @default(cuid())
+  userId                String
+  videoId               String          @unique
+  status                CapsuleStatus   @default(idle)
+  coverage              CapsuleCoverage @default(metadata_only)
+  language              String          @default("pt-BR")
+  summary               String?
+  keyPoints             Json            @default("[]")
+  concepts              Json            @default("[]")
+  practicalApplications Json            @default("[]")
+  actionItems           Json            @default("[]")
+  reflectionQuestions   Json            @default("[]")
+  evidenceSnippets      Json            @default("[]")
+  sourceText            String?
+  sourceTextHash        String?
+  aiModel               String?
+  aiConfidence          Float?
+  aiRationale           String?
+  errorCode             String?
+  errorMessage          String?
+  generatedAt           DateTime?
+  createdAt             DateTime        @default(now())
+  updatedAt             DateTime        @updatedAt
+  user                  User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  video                 Video           @relation(fields: [videoId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([userId, status])
+  @@index([userId, coverage])
+  @@index([generatedAt])
+  @@index([userId, generatedAt])
 }
