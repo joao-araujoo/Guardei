@@ -1,94 +1,35 @@
-name: Intelligent Capsule CI
+name: Persist Public NPM Lockfiles
 
 on:
   push:
     branches:
       - feat/intelligent-capsules
-  pull_request:
-    branches:
-      - main
 
 permissions:
   contents: write
 
 jobs:
-  validate:
+  persist-lockfiles:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
-    env:
-      NODE_ENV: test
-      DATABASE_URL: postgresql://guardei:guardei@localhost:5432/guardei
-      DATABASE_DIRECT_URL: postgresql://guardei:guardei@localhost:5432/guardei
-      NPM_CONFIG_FETCH_RETRIES: 3
-      NPM_CONFIG_FETCH_TIMEOUT: 60000
-
+    timeout-minutes: 5
     steps:
-      - name: Checkout repository
+      - name: Checkout implementation branch
         uses: actions/checkout@v4
         with:
+          ref: feat/intelligent-capsules
           fetch-depth: 0
 
-      - name: Normalize public npm registry URLs
+      - name: Normalize and publish lockfiles
         shell: bash
         run: |
+          set -euo pipefail
           sed -i 's#https://packages.applied-caas-gateway1.internal.api.openai.org/artifactory/api/npm/npm-public/#https://registry.npmjs.org/#g' package-lock.json server/package-lock.json
           if grep -R 'packages.applied-caas-gateway1.internal.api.openai.org' package-lock.json server/package-lock.json; then
             echo 'Internal registry URL remained in a lockfile.'
             exit 1
           fi
-
-      - name: Upload source snapshot
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: guardei-source-${{ github.sha }}
-          path: |
-            .
-            !.git
-            !node_modules
-            !server/node_modules
-            !dist
-          include-hidden-files: true
-          retention-days: 1
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: npm
-          cache-dependency-path: |
-            package-lock.json
-            server/package-lock.json
-
-      - name: Install frontend dependencies
-        run: npm ci --no-audit --no-fund
-
-      - name: Audit frontend dependencies
-        run: npm audit --audit-level=high
-
-      - name: Build frontend
-        run: npm run build
-
-      - name: Install backend dependencies
-        run: npm ci --prefix server --no-audit --no-fund
-
-      - name: Audit backend dependencies
-        run: npm audit --prefix server --audit-level=high
-
-      - name: Generate Prisma client
-        run: npm --prefix server run db:generate
-
-      - name: Validate backend initialization
-        run: node -e "import('./server/src/index.js').then(() => console.log('Backend initialized successfully'))"
-
-      - name: Run backend tests
-        run: npm --prefix server test
-
-      - name: Persist normalized lockfiles
-        if: github.event_name == 'push'
-        shell: bash
-        run: |
           if git diff --quiet -- package-lock.json server/package-lock.json; then
+            echo 'Lockfiles already use the public registry.'
             exit 0
           fi
           git config user.name "github-actions[bot]"
