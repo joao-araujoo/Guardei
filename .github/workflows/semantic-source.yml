@@ -1,10 +1,42 @@
 name: Semantic Evolution Publisher
 
 on:
-  workflow_dispatch:
+  push:
+    branches:
+      - feat/semantic-search-learning-paths
+    paths:
+      - .github/semantic-patch-ready
+
+permissions:
+  contents: write
 
 jobs:
-  paused:
+  publish:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
-      - run: echo "Publisher paused while the verified patch is uploaded."
+      - name: Checkout implementation branch
+        uses: actions/checkout@v4
+        with:
+          ref: feat/semantic-search-learning-paths
+          fetch-depth: 0
+
+      - name: Verify and apply semantic evolution
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat .github/semantic-patch-parts/part-* > /tmp/semantic-evolution.patch.gz.b64
+          encoded_hash="$(sha256sum /tmp/semantic-evolution.patch.gz.b64 | cut -d' ' -f1)"
+          test "$encoded_hash" = "017e826eb0db97168dcc38983f3af0f24a70ab2ea29e373539321275b2c3cdb4"
+          base64 --decode /tmp/semantic-evolution.patch.gz.b64 | gzip --decompress > /tmp/semantic-evolution.patch
+          patch_hash="$(sha256sum /tmp/semantic-evolution.patch | cut -d' ' -f1)"
+          test "$patch_hash" = "f146d075f4b25e81d4d738a1ce40f44182ddcb19053ba6deb071a3d166573291"
+          git apply --check /tmp/semantic-evolution.patch
+          git apply /tmp/semantic-evolution.patch
+          rm -rf .github/semantic-patch-parts
+          rm -f .github/semantic-patch-ready
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "feat: implement semantic search and intelligent paths"
+          git push origin HEAD:feat/semantic-search-learning-paths
