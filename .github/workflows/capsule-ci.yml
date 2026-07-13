@@ -15,53 +15,10 @@ jobs:
   publish-staged-implementation:
     runs-on: ubuntu-latest
     timeout-minutes: 5
-
     steps:
-      - name: Checkout implementation branch
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           ref: feat/intelligent-capsules
           fetch-depth: 0
-
-      - name: Apply and publish staged implementation
-        shell: bash
-        run: |
-          set -u
-          if [[ ! -f .github/capsule-patch-ready ]]; then
-            echo "No staged patch found."
-            exit 0
-          fi
-
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          cat .github/capsule-patch-parts/part-* > /tmp/capsule-changes.patch.gz.b64
-
-          {
-            echo "encoded_sha256=$(sha256sum /tmp/capsule-changes.patch.gz.b64 | cut -d' ' -f1)"
-            echo "expected_encoded_sha256=c8620a003227f43820b3ac47136e55a83cc1bf9dc005e89d640cec33d73513d1"
-            base64 --decode /tmp/capsule-changes.patch.gz.b64 | gzip --decompress > /tmp/capsule-changes.patch
-            echo "patch_sha256=$(sha256sum /tmp/capsule-changes.patch | cut -d' ' -f1)"
-            echo "expected_patch_sha256=67e50b79e56223432047871b49a6b2204aa5d212219e9c58e46c19ef67d38807"
-            git show 12b996f96fc845d68c701e31f642ff3fb766b1c8:.github/workflows/capsule-ci.yml > .github/workflows/capsule-ci.yml
-            git apply --check /tmp/capsule-changes.patch
-          } > /tmp/patch-diagnostic.txt 2>&1
-          status=$?
-
-          if [[ $status -ne 0 ]]; then
-            cp /tmp/patch-diagnostic.txt .github/capsule-patch-diagnostic.txt
-            git add .github/capsule-patch-diagnostic.txt
-            git commit -m "chore: record capsule patch diagnostic" || true
-            git push origin HEAD:feat/intelligent-capsules
-            cat /tmp/patch-diagnostic.txt
-            exit $status
-          fi
-
-          git apply /tmp/capsule-changes.patch
-          rm -rf .github/capsule-patch-parts
-          rm -f .github/capsule-patch-ready
-          rm -f .github/capsule-patch-diagnostic.txt
-          rm -f .github/workflows/apply-capsule-patch.yml
-
-          git add -A
-          git commit -m "feat: implement intelligent content capsules"
-          git push origin HEAD:feat/intelligent-capsules
+          show-progress: false
+      - run: bash .github/patch-publish.sh
