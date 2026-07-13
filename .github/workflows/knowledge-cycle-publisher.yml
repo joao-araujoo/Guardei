@@ -15,6 +15,21 @@ jobs:
           ref: feat/knowledge-cycle
           fetch-depth: 1
           show-progress: false
-      - name: Hash uploaded parts
-        shell: bash
-        run: sha256sum .github/knowledge-cycle-patch-parts/part-* && cat .github/knowledge-cycle-patch-parts/part-* | sha256sum
+      - name: Verify part 00
+        run: test "$(sha256sum .github/knowledge-cycle-patch-parts/part-00 | cut -d' ' -f1)" = "6248149e3eb7aecf85054701f5fadfc0f914adfc0ba1d08eead5c0bcc601c4f3"
+      - name: Verify part 01
+        run: test "$(sha256sum .github/knowledge-cycle-patch-parts/part-01 | cut -d' ' -f1)" = "af14220d9738130f38b8b7397d7802f80fb6092c6bc784b0be8920cb22838966"
+      - name: Verify part 02
+        run: test "$(sha256sum .github/knowledge-cycle-patch-parts/part-02 | cut -d' ' -f1)" = "ae383c513f87e77db78ad8520cb4f49dc2502ba5148f4089f3507638ae73f4a6"
+      - name: Verify part 03
+        run: test "$(sha256sum .github/knowledge-cycle-patch-parts/part-03 | cut -d' ' -f1)" = "dfd26704d1d5a95bedcb6a47670015eea5fdc40ec597c8e29bd8dc384ecf906d"
+      - name: Verify part 04
+        run: test "$(sha256sum .github/knowledge-cycle-patch-parts/part-04 | cut -d' ' -f1)" = "60b7ad08c0b625f6ebd28463d277b9638e1b78560edfe30340b2b585d1583e68"
+      - name: Verify part 05
+        run: test "$(sha256sum .github/knowledge-cycle-patch-parts/part-05 | cut -d' ' -f1)" = "0609fa8f282dd10a21f82be51f0f7bec6a04da29c3cf667e4e3ddfb24be0d9a5"
+      - name: Verify part 06
+        run: test "$(sha256sum .github/knowledge-cycle-patch-parts/part-06 | cut -d' ' -f1)" = "7c98271ec4880444c610c824b73bb96d82d300d5485add9d507b16f8dd4586f5"
+      - name: Verify part 07
+        run: test "$(sha256sum .github/knowledge-cycle-patch-parts/part-07 | cut -d' ' -f1)" = "7557282eae33aa02eaa4356fe136a64a919f9b2bcb059d88a8fa13de753ecd9c"
+      - name: Verify concatenated payload
+        run: cat .github/knowledge-cycle-patch-parts/part-* | sha256sum | grep -q '^b6497c2a0e0071e01a89722582df21be0b68ed62f6e2591acfa12ba587f53b7b '
