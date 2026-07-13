@@ -1,24 +1,10 @@
 name: Intelligent Capsule CI
 
 on:
-  push:
-    branches:
-      - feat/intelligent-capsules
-  pull_request:
-    branches:
-      - main
-
-permissions:
-  contents: write
+  workflow_dispatch:
 
 jobs:
-  publish-staged-implementation:
+  paused:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: feat/intelligent-capsules
-          fetch-depth: 0
-          show-progress: false
-      - run: bash .github/patch-publish.sh
+      - run: echo "Validation will be re-enabled after all implementation files are published."
