@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - feat/semantic-search-learning-paths
+  pull_request:
+    branches:
+      - feat/intelligent-capsules
 
 jobs:
   snapshot:
@@ -11,8 +14,6 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
-        with:
-          ref: feat/semantic-search-learning-paths
       - uses: actions/upload-artifact@v4
         with:
           name: guardei-semantic-source-${{ github.sha }}
