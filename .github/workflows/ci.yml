@@ -13,7 +13,7 @@ jobs:
   validate:
     name: Build and validate
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 12
 
     steps:
       - name: Checkout
@@ -32,13 +32,20 @@ jobs:
         run: npm ci
 
       - name: Install backend dependencies
-        run: npm ci --prefix server
+        run: npm install --prefix server
 
       - name: Generate Prisma client
         run: npm --prefix server run db:generate
         env:
           DATABASE_URL: postgresql://user:password@localhost:5432/guardei
           DATABASE_DIRECT_URL: postgresql://user:password@localhost:5432/guardei
+
+      - name: Check backend syntax
+        run: |
+          node --check server/src/index.js
+          node --check server/src/routes/pushRoutes.js
+          node --check server/src/push/webPush.js
+          node --check server/scripts/generate-vapid.js
 
       - name: Run smart product tests
         run: npm test
