@@ -17,13 +17,14 @@ export default function PushBootstrap() {
         const settings = await repository.getSettings?.();
         if (!settings) return;
 
-        if (settings.smartNotificationsEnabled && Notification.permission === 'granted') {
+        const notificationGranted = 'Notification' in window && Notification.permission === 'granted';
+        if (settings.smartNotificationsEnabled && notificationGranted) {
           await ensurePushSubscription();
         } else if (!settings.smartNotificationsEnabled) {
           await removePushSubscription();
         }
       } catch (error) {
-        if (error?.status !== 401) console.warn('Web Push sync:', error);
+        if (error?.status !== 401 && error?.status !== 404) console.warn('Web Push sync:', error);
       } finally {
         syncingRef.current = false;
       }
