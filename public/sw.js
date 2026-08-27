@@ -204,16 +204,15 @@ async function writeLastPeriodicReminder(timestamp) {
 
 async function markVideoSeenAndOpen(videoId) {
   try {
+    const now = new Date().toISOString();
     await fetch(`/api/videos/${encodeURIComponent(videoId)}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
       body: JSON.stringify({
         status: 'aplicado',
-        watchedAt: new Date().toISOString(),
-        reviewedAt: new Date().toISOString(),
-        watchCount: 1,
-        watchedSeconds: 300
+        watchedAt: now,
+        reviewedAt: now
       })
     });
   } catch {
