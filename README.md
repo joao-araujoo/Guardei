@@ -1,5 +1,5 @@
 <p align="left">
-  <img width="400" height="230"  alt="guardei-logo" src="https://github.com/user-attachments/assets/a90dda4f-3977-4ad6-8506-3cdd961b122b" />
+  <img width="400" height="230" alt="guardei-logo" src="https://github.com/user-attachments/assets/a90dda4f-3977-4ad6-8506-3cdd961b122b" />
 </p>
 
 # Guardei - O Seu Acervo Digital Inteligente 🗂️
@@ -12,86 +12,97 @@
   <strong>Salve, organize e revisite links importantes da internet com o poder da Inteligência Artificial.</strong>
 </p>
 
-<p align="center">
-  <a href="#-o-buraco-negro-digital">O Problema</a> •
-  <a href="#-sobre-o-projeto">Sobre</a> •
-  <a href="#-principais-funcionalidades">Funcionalidades</a> •
-  <a href="#-arquitetura-e-tecnologias">Tecnologias</a> •
-  <a href="#-roadmap-de-desenvolvimento">Roadmap</a> •
-  <a href="#-desenvolvedor">Desenvolvedor</a>
-</p>
-
 ---
 
-## 🕳️ O "Buraco Negro" Digital
+## Sobre o projeto
 
-Diariamente, consumimos conteúdos valiosos no TikTok, YouTube, X/Twitter, Instagram, Reddit e GitHub. Clicamos em "Salvar" ou "Favoritar" e, na esmagadora maioria das vezes, **nunca mais revisitamos esses links**. 
+O Guardei é uma PWA para transformar links esquecidos em um acervo ativo. Ele recebe links manualmente, pelo clipboard e pelo menu de compartilhamento compatível, classifica e organiza automaticamente e usa o Guardinho para recomendar, lembrar e executar ações seguras sobre o acervo.
 
-O **Guardei** foi idealizado para resolver a síndrome da acumulação digital. Mais do que um simples agregador de favoritos, ele é um ecossistema projetado para transformar links esquecidos em conhecimento ativo e acessível, recomendando o conteúdo certo para o seu momento atual.
+## Principais funcionalidades
 
-## 📖 Sobre o Projeto
+- salvamento e deduplicação de links;
+- classificação automática com Gemini e fallback local;
+- contas e acervo isolado por usuário;
+- recomendações contextuais;
+- Guardinho com ações para salvar, organizar, categorizar, arquivar, marcar visto e destacar conteúdos;
+- lembretes inteligentes e bem-humorados;
+- Web Push com VAPID para a PWA instalada, inclusive com o app fechado;
+- subscriptions de push por dispositivo e limpeza no logout;
+- Service Worker com ações nas notificações;
+- PWA com Web Share Target em plataformas compatíveis;
+- backup/importação JSON;
+- conquistas e métricas de consumo.
 
-O **Guardei** é uma aplicação web progressiva (PWA) desenvolvida com auxílio de IA. Ele atua como um acervo pessoal inteligente, centralizando conteúdos de múltiplas plataformas em uma única interface limpa e moderna.
+## Rodar o frontend
 
-A grande disrupção arquitetural do projeto é a integração com a **API do Google Gemini**, que automatiza o processo de triagem: ao salvar um link, a IA infere o contexto, categoriza, gera *tags* e define a prioridade de consumo. Tudo isso com uma experiência nativa de mobile através do *Web Share Target*, permitindo enviar links diretamente do celular para a plataforma.
+```bash
+npm install
+npm run dev
+```
 
----
+## Rodar o backend
 
-## ✨ Principais Funcionalidades
+```bash
+cd server
+npm install
+npm run db:generate
+npm run db:push
+npm run dev
+```
 
-- **📥 Ingestão Omnichannel:** Suporte universal para salvamento de links (YouTube, X, Spotify, Instagram, artigos, posts, repositórios).
-- **🧠 Organização Neural (Gemini AI):** Classificação automática do link recém-salvo, definindo categorias, *tags*, contexto e nível de prioridade sem intervenção manual.
-- **🎯 Motor de Recomendação Contextual:** Sugestões de links para revisitar baseadas no seu tempo livre disponível, humor atual ou formato de conteúdo desejado (vídeo, texto, áudio).
-- **📊 Dashboard de Hábitos:** Métricas detalhadas sobre o seu perfil de consumo digital, taxa de revisão de conteúdos e evolução do acervo.
-- **🏆 Sistema de Gamificação:** Desbloqueio de conquistas atreladas à consistência no uso e limpeza da fila de leitura.
-- **📱 PWA Nativo:** Instalação direta no smartphone (iOS/Android) com suporte a compartilhamento nativo do sistema (Share Sheet) para salvar links em um clique.
+Variáveis principais:
 
----
+```env
+VITE_STORAGE_MODE=api
+VITE_API_BASE_URL=http://localhost:3333
+DATABASE_URL=connection_string_pooled_do_neon
+DATABASE_DIRECT_URL=connection_string_direta_do_neon
+AUTH_SECRET=um_segredo_com_pelo_menos_32_caracteres
+GEMINI_API_KEY=sua_chave_gemini
+```
 
-## 🚀 Arquitetura e Tecnologias
+Com `VITE_STORAGE_MODE=api`, contas, links, preferências e subscriptions ficam no backend/PostgreSQL. Sem essa variável, o app continua oferecendo o modo local para desenvolvimento.
 
-A stack foi selecionada para garantir escalabilidade, processamento ágil de NLP (Linguagem Natural) e uma experiência de usuário sem atritos.
+## Ativar Web Push no celular
 
-### **Front-end & PWA**
-![React](https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)
-![Vite](https://img.shields.io/badge/Vite-646CFF?style=for-the-badge&logo=vite&logoColor=white)
-![JavaScript](https://img.shields.io/badge/JavaScript-F7DF1E?style=for-the-badge&logo=javascript&logoColor=black)
-![CSS3](https://img.shields.io/badge/CSS3-1572B6?style=for-the-badge&logo=css3&logoColor=white)
-![PWA](https://img.shields.io/badge/PWA-5A0FC8?style=for-the-badge&logo=pwa&logoColor=white)
+Depois de instalar as dependências do backend, gere as chaves VAPID uma única vez:
 
-### **Back-end & IA**
-![Node.js](https://img.shields.io/badge/Node.js-339933?style=for-the-badge&logo=node.js&logoColor=white)
-![Express](https://img.shields.io/badge/Express.js-000000?style=for-the-badge&logo=express&logoColor=white)
-![Google Gemini](https://img.shields.io/badge/Google%20Gemini-8E75B2?style=for-the-badge&logo=googlegemini&logoColor=white)
+```bash
+npm --prefix server run push:keys
+```
 
-### **Banco de Dados & Infraestrutura**
-![PostgreSQL](https://img.shields.io/badge/PostgreSQL-316192?style=for-the-badge&logo=postgresql&logoColor=white)
-![Prisma](https://img.shields.io/badge/Prisma-3982CE?style=for-the-badge&logo=Prisma&logoColor=white)
-![Neon](https://img.shields.io/badge/Neon_DB-00E599?style=for-the-badge&logo=neon&logoColor=black)
-![Render](https://img.shields.io/badge/Render-46E3B7?style=for-the-badge&logo=render&logoColor=black)
+Coloque os valores gerados no ambiente permanente do backend:
 
----
+```env
+VAPID_PUBLIC_KEY=...
+VAPID_PRIVATE_KEY=...
+VAPID_SUBJECT=mailto:seu-email@dominio.com
+PUSH_SCHEDULER_ENABLED=true
+PUSH_SCHEDULER_INTERVAL_MINUTES=60
+PUSH_CRON_SECRET=um-segredo-longo-opcional
+```
 
-## 🗺️ Roadmap de Desenvolvimento
+Não troque as chaves VAPID depois que usuários estiverem inscritos, pois a troca invalida subscriptions existentes.
 
-- [x] Definição da arquitetura e modelagem do banco de dados (Prisma/Neon).
-- [x] Configuração do manifesto PWA e Web Share Target.
-- [x] Integração do backend com a API do Google Gemini para inferência de tags e prioridade.
-- [x] Construção do motor de recomendações (Filtros por tempo/humor).
-- [x] Desenvolvimento do Dashboard analítico e métricas de consumo.
-- [x] Implementação do sistema de gamificação e conquistas.
-- [x] Deploy contínuo na plataforma Render.
+Em produção, use HTTPS. Instale a PWA no celular, entre na conta e ative **Lembretes** pelo Guardinho. O dispositivo será inscrito automaticamente e receberá uma notificação de teste. O scheduler do backend passa então a enviar lembretes inteligentes mesmo quando o Guardei estiver fechado.
 
----
+Se a infraestrutura do backend dormir ou escalar para zero, configure também um cron externo para chamar `POST /api/push/cron` com o header `X-Push-Cron-Secret`.
 
-## 👨‍💻 Desenvolvedor
+## Scripts úteis
 
-Projeto arquitetado e desenvolvido de forma independente por:
+```bash
+npm test
+npm run build
+npm --prefix server run db:generate
+npm --prefix server run db:push
+npm --prefix server run push:keys
+```
 
-* **João Pedro Araujo Costa** - *Full-Stack Development* - [@joao-araujoo](https://github.com/joao-araujoo)
+## Estrutura
 
----
-
-## 📝 Licença
-
-Este projeto está sob a licença MIT. Veja o arquivo [LICENSE](LICENSE) para mais detalhes.
+- `src/` — frontend React/PWA;
+- `public/sw.js` — Service Worker, notificações e push;
+- `server/src/` — API Express;
+- `server/src/push/` — motor server-driven de Web Push;
+- `server/prisma/schema.prisma` — PostgreSQL/Prisma;
+- `tests/` — testes automatizados do produto inteligente.

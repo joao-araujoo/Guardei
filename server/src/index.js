@@ -6,8 +6,10 @@ import { fileURLToPath } from "url";
 import authRoutes from "./routes/authRoutes.js";
 import achievementRoutes from "./routes/achievementRoutes.js";
 import aiRoutes from "./routes/aiRoutes.js";
+import pushRoutes from "./routes/pushRoutes.js";
 import settingsRoutes from "./routes/settingsRoutes.js";
 import videoRoutes from "./routes/videoRoutes.js";
+import { getPushConfig, startPushScheduler } from "./push/webPush.js";
 
 dotenv.config();
 
@@ -24,7 +26,7 @@ app.use(
     origin: CORS_ORIGIN,
     credentials: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
+    allowedHeaders: ["Content-Type", "Authorization", "X-Push-Cron-Secret"],
   })
 );
 
@@ -35,6 +37,7 @@ app.get("/api", (req, res) => {
     ok: true,
     name: "Guardei API",
     ai_provider: process.env.AI_PROVIDER || "local",
+    web_push: getPushConfig().enabled,
   });
 });
 
@@ -43,12 +46,14 @@ app.get("/api/health", (req, res) => {
     ok: true,
     status: "online",
     ai_provider: process.env.GEMINI_API_KEY ? "gemini" : "local-fallback",
+    web_push: getPushConfig().enabled ? "configured" : "not-configured",
   });
 });
 
 app.use("/api/auth", authRoutes);
 app.use("/api/achievements", achievementRoutes);
 app.use("/api/ai", aiRoutes);
+app.use("/api/push", pushRoutes);
 app.use("/api/settings", settingsRoutes);
 app.use("/api/videos", videoRoutes);
 
@@ -66,4 +71,6 @@ app.use((error, _req, res, _next) => {
 
 app.listen(PORT, () => {
   console.log(`Guardei API rodando em http://localhost:${PORT}`);
+  console.log(`Web Push: ${getPushConfig().enabled ? "configurado" : "aguardando VAPID_PUBLIC_KEY/VAPID_PRIVATE_KEY/VAPID_SUBJECT"}`);
+  startPushScheduler();
 });

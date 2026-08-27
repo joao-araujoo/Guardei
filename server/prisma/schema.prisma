@@ -80,27 +80,50 @@ model Video {
 }
 
 model User {
-  id           String        @id @default(cuid())
-  name         String?
-  email        String        @unique
-  passwordHash String
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
-  videos       Video[]
-  settings     UserSettings?
-  achievements UserAchievement[]
+  id                String             @id @default(cuid())
+  name              String?
+  email             String             @unique
+  passwordHash      String
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  videos            Video[]
+  settings          UserSettings?
+  achievements      UserAchievement[]
+  pushSubscriptions PushSubscription[]
 }
 
 model UserSettings {
-  id                         String   @id @default(cuid())
-  userId                     String   @unique
-  dailyReviewTarget          Int      @default(3)
-  autoOpenReviewAfterShare   Boolean  @default(false)
-  storageMode                String   @default("api")
-  backendReady               Boolean  @default(true)
-  createdAt                  DateTime @default(now())
-  updatedAt                  DateTime @updatedAt
-  user                       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                           String    @id @default(cuid())
+  userId                       String    @unique
+  dailyReviewTarget            Int       @default(3)
+  autoOpenReviewAfterShare     Boolean   @default(false)
+  storageMode                  String    @default("api")
+  backendReady                 Boolean   @default(true)
+  smartNotificationsEnabled    Boolean   @default(false)
+  clipboardSuggestionsEnabled  Boolean   @default(true)
+  guardinhoActionsEnabled      Boolean   @default(true)
+  recommendationMode           String    @default("smart")
+  notificationFrequency        String    @default("balanced")
+  lastSmartPushAt              DateTime?
+  createdAt                    DateTime  @default(now())
+  updatedAt                    DateTime  @updatedAt
+  user                         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model PushSubscription {
+  id         String   @id @default(cuid())
+  userId     String
+  endpoint   String   @unique
+  p256dh     String
+  auth       String
+  userAgent  String?
+  lastSeenAt DateTime @default(now())
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([lastSeenAt])
 }
 
 model VideoRevision {

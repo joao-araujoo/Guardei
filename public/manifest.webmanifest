@@ -1,13 +1,22 @@
 {
+  "id": "/",
   "name": "Guardei - Acervo com IA",
   "short_name": "Guardei",
-  "description": "Salve qualquer link da internet, organize seu acervo e receba recomendacoes com IA para o tempo livre que voce tiver.",
+  "description": "Salve qualquer link da internet, organize seu acervo e receba recomendacoes inteligentes do Guardinho para revisitar o que importa.",
+  "lang": "pt-BR",
+  "dir": "ltr",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
   "background_color": "#f6edd8",
   "theme_color": "#f6edd8",
   "orientation": "portrait-primary",
+  "categories": ["productivity", "utilities", "lifestyle"],
+  "prefer_related_applications": false,
+  "launch_handler": {
+    "client_mode": "navigate-existing"
+  },
   "icons": [
     {
       "src": "/icons/guardei-icon.png",
@@ -34,8 +43,15 @@
   },
   "shortcuts": [
     {
-      "name": "Guardar link",
+      "name": "Guardar link copiado",
       "short_name": "Guardar",
+      "description": "Abrir o Guardinho e detectar o link que esta no clipboard.",
+      "url": "/?clipboard=1",
+      "icons": [{ "src": "/icons/guardei-icon.png", "sizes": "1254x1254", "type": "image/png" }]
+    },
+    {
+      "name": "Adicionar link",
+      "short_name": "Adicionar",
       "description": "Abrir direto na tela de salvamento.",
       "url": "/?add=1",
       "icons": [{ "src": "/icons/guardei-icon.png", "sizes": "1254x1254", "type": "image/png" }]

@@ -3,6 +3,7 @@ export const CATEGORIES = [
     id: 'dev',
     label: 'Dev',
     icon: 'code',
+    emoji: '💻',
     accent: '#c77dff',
     gradient: 'linear-gradient(135deg,#0d0020,#3a1260,#7b2fff55)',
     keywords: [
@@ -15,6 +16,7 @@ export const CATEGORIES = [
     id: 'tech',
     label: 'Tecnologia',
     icon: 'settings',
+    emoji: '🤖',
     accent: '#00d4ff',
     gradient: 'linear-gradient(135deg,#00121f,#003566,#00b4d855)',
     keywords: [
@@ -27,6 +29,7 @@ export const CATEGORIES = [
     id: 'design',
     label: 'Design',
     icon: 'palette',
+    emoji: '🎨',
     accent: '#ff6b9d',
     gradient: 'linear-gradient(135deg,#1a0008,#5c1232,#ff6b9d55)',
     keywords: [
@@ -39,6 +42,7 @@ export const CATEGORIES = [
     id: 'mente',
     label: 'Mentalidade',
     icon: 'brain',
+    emoji: '🧠',
     accent: '#a5b4fc',
     gradient: 'linear-gradient(135deg,#060826,#25234e,#a5b4fc4f)',
     keywords: [
@@ -51,6 +55,7 @@ export const CATEGORIES = [
     id: 'grana',
     label: 'Financeiro',
     icon: 'wallet',
+    emoji: '💸',
     accent: '#06d6a0',
     gradient: 'linear-gradient(135deg,#001a0d,#0d3a1f,#06d6a055)',
     keywords: [
@@ -63,6 +68,7 @@ export const CATEGORIES = [
     id: 'corpo',
     label: 'Saúde',
     icon: 'heart',
+    emoji: '💪',
     accent: '#ffd166',
     gradient: 'linear-gradient(135deg,#1a0b00,#5c3500,#ffd16655)',
     keywords: [
@@ -75,6 +81,7 @@ export const CATEGORIES = [
     id: 'ideias',
     label: 'Inspiração',
     icon: 'zap',
+    emoji: '💡',
     accent: '#f72585',
     gradient: 'linear-gradient(135deg,#1b0028,#4d006f,#f7258550)',
     keywords: [
@@ -87,6 +94,7 @@ export const CATEGORIES = [
     id: 'musica',
     label: 'Música',
     icon: 'music',
+    emoji: '🎵',
     accent: '#1db954',
     gradient: 'linear-gradient(135deg,#06140b,#12351f,#1db95466)',
     keywords: [
@@ -98,6 +106,7 @@ export const CATEGORIES = [
     id: 'cultura',
     label: 'Entretenimento',
     icon: 'film',
+    emoji: '🎬',
     accent: '#ff8a00',
     gradient: 'linear-gradient(135deg,#1f0d00,#613800,#ff8a0060)',
     keywords: [
@@ -109,6 +118,7 @@ export const CATEGORIES = [
     id: 'misc',
     label: 'Geral',
     icon: 'bookmark',
+    emoji: '🔖',
     accent: '#8b8ba7',
     gradient: 'linear-gradient(135deg,#11111d,#25253a,#8b8ba740)',
     keywords: []

@@ -1,6 +1,8 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App.jsx';
+import ProductShell from './ProductShell.jsx';
+import PushBootstrap from './PushBootstrap.jsx';
 import './styles.css';
 
 if ('serviceWorker' in navigator) {
@@ -11,6 +13,9 @@ if ('serviceWorker' in navigator) {
 
 createRoot(document.getElementById('root')).render(
   <React.StrictMode>
-    <App />
+    <ProductShell>
+      <App />
+    </ProductShell>
+    <PushBootstrap />
   </React.StrictMode>
 );

@@ -8,7 +8,8 @@
     "start": "node src/index.js",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
-    "db:studio": "prisma studio"
+    "db:studio": "prisma studio",
+    "push:keys": "node scripts/generate-vapid.js"
   },
   "dependencies": {
     "@google/genai": "latest",
@@ -16,6 +17,7 @@
     "cors": "latest",
     "dotenv": "latest",
     "express": "latest",
-    "prisma": "^6.19.0"
+    "prisma": "^6.19.0",
+    "web-push": "^3.6.7"
   }
 }
