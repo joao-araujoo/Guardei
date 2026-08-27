@@ -126,7 +126,22 @@ export class ApiVaultRepository {
   }
 
   async logout() {
+    await this.unregisterCurrentPushSubscription();
     return this.request('/api/auth/logout', { method: 'POST' });
+  }
+
+  async unregisterCurrentPushSubscription() {
+    try {
+      if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+      const registration = await navigator.serviceWorker.ready;
+      const subscription = await registration.pushManager.getSubscription();
+      if (!subscription) return;
+      await this.request('/api/push/subscribe', { method: 'DELETE', body: { endpoint: subscription.endpoint } });
+      await subscription.unsubscribe();
+      localStorage.removeItem('guardei.push.tested-endpoint.v1');
+    } catch {
+      // Logout must still proceed even if the browser cannot clean up push locally.
+    }
   }
 
   async listAchievements() {
