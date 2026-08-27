@@ -1,7 +1,10 @@
 import express from "express";
 import { chatWithMascotGemini, classifyTikTokWithGemini, classifyVideoWithGemini } from "../ai/geminiClassifier.js";
+import { requireAuth } from "../middleware/auth.js";
 
 const router = express.Router();
+
+router.use(requireAuth);
 
 async function getOEmbed(url, platform) {
   if (!["youtube", "tiktok"].includes(platform)) return null;
