@@ -2,6 +2,18 @@ const STORAGE_KEY = 'vault.auto.videos.v2';
 const SETTINGS_KEY = 'vault.auto.settings.v2';
 const ACHIEVEMENTS_KEY = 'vault.auto.achievements.v2';
 
+const DEFAULT_SETTINGS = {
+  dailyReviewTarget: 3,
+  autoOpenReviewAfterShare: false,
+  storageMode: 'localStorage',
+  backendReady: true,
+  smartNotificationsEnabled: false,
+  clipboardSuggestionsEnabled: true,
+  guardinhoActionsEnabled: true,
+  recommendationMode: 'smart',
+  notificationFrequency: 'balanced'
+};
+
 export class LocalVaultRepository {
   async listVideos() {
     return safeRead(STORAGE_KEY, []);
@@ -41,17 +53,13 @@ export class LocalVaultRepository {
   }
 
   async getSettings() {
-    return safeRead(SETTINGS_KEY, {
-      dailyReviewTarget: 3,
-      autoOpenReviewAfterShare: false,
-      storageMode: 'localStorage',
-      backendReady: true
-    });
+    return { ...DEFAULT_SETTINGS, ...safeRead(SETTINGS_KEY, {}) };
   }
 
   async saveSettings(settings) {
-    localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
-    return settings;
+    const next = { ...DEFAULT_SETTINGS, ...(settings || {}) };
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(next));
+    return next;
   }
 
   async listAchievements() {
