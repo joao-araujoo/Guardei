@@ -11,10 +11,16 @@ const COMMAND_STOPWORDS = new Set([
   'pra', 'para', 'por', 'favor', 'meu', 'minha', 'nos', 'nas', 'dos', 'das', 'uma', 'um', 'que', 'eu', 'ja', 'já'
 ]);
 
-export async function executeGuardinhoCommand({ message, videos = [], repository }) {
+export async function executeGuardinhoCommand({ message, videos = [], repository, messages = [] }) {
   const rawMessage = String(message || '').trim();
   const normalized = normalize(rawMessage);
   if (!rawMessage) return response('Me fala o que você quer fazer. Eu consigo salvar, organizar, marcar como visto, arquivar, destacar e recomendar.');
+
+  if (hasAny(normalized, ['apaga', 'apagar', 'exclui', 'excluir', 'deleta', 'deletar', 'remove definitivamente', 'remover definitivamente'])) {
+    return response('🛟 Eu não apago itens por comando. Posso arquivar para tirar da frente sem destruir nada — se quiser, me diga qual item eu arquivo.', {
+      action: 'blocked-destructive'
+    });
+  }
 
   const url = extractSupportedVideoUrl(rawMessage);
   if (url && hasAny(normalized, ['salva', 'salvar', 'adiciona', 'adicionar', 'guarda', 'guardar', 'link', 'http'])) {
@@ -142,7 +148,57 @@ export async function executeGuardinhoCommand({ message, videos = [], repository
     });
   }
 
-  return response('Eu já consigo agir no seu acervo, não só conversar. Tenta “me recomenda algo”, “marca [título] como visto”, “arquiva [título]”, “coloca [título] em Design”, “organiza o inbox” ou cola um link para eu salvar. ✨');
+  const aiAnswer = await askExistingMascotAi({ message: rawMessage, messages, videos });
+  if (aiAnswer) {
+    return response(aiAnswer, { action: 'chat' });
+  }
+
+  return response('Eu já consigo agir no seu acervo e conversar sobre ele. Tenta “me recomenda algo”, “marca [título] como visto”, “arquiva [título]”, “coloca [título] em Design”, “organiza o inbox” ou cola um link para eu salvar. ✨');
+}
+
+async function askExistingMascotAi({ message, messages = [], videos = [] }) {
+  try {
+    const configuredBase =
+      import.meta.env.VITE_API_BASE_URL ||
+      import.meta.env.VITE_VAULT_API_URL ||
+      (typeof window !== 'undefined' ? window.VAULT_API_URL : '') ||
+      '';
+    const endpoint = `${configuredBase.replace(/\/$/, '')}/api/ai/mascot-chat`;
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({
+        message,
+        messages: Array.isArray(messages) ? messages.slice(-10) : [],
+        videos: videos.slice(0, 120),
+        stats: buildAgentStats(videos)
+      })
+    });
+    if (!response.ok) return '';
+    const data = await response.json();
+    return String(data?.answer || '').trim();
+  } catch {
+    return '';
+  }
+}
+
+function buildAgentStats(videos) {
+  const active = videos.filter(video => !['arquivado', 'aplicado'].includes(video.status));
+  const watched = videos.filter(video => video.status === 'aplicado' || video.watchedAt);
+  const byCategory = {};
+  for (const video of videos) {
+    if (!video.category) continue;
+    byCategory[video.category] = (byCategory[video.category] || 0) + 1;
+  }
+  return {
+    total: videos.length,
+    active: active.length,
+    watched: watched.length,
+    important: videos.filter(video => video.status === 'importante').length,
+    inbox: videos.filter(video => video.status === 'inbox').length,
+    byCategory
+  };
 }
 
 function findRequestedCategory(normalizedMessage) {
