@@ -40,5 +40,8 @@ jobs:
           DATABASE_URL: postgresql://user:password@localhost:5432/guardei
           DATABASE_DIRECT_URL: postgresql://user:password@localhost:5432/guardei
 
+      - name: Run smart product tests
+        run: npm test
+
       - name: Build frontend
         run: npm run build
