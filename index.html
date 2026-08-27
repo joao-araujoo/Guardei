@@ -17,5 +17,27 @@
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
+    <script>
+      document.addEventListener('click', function (event) {
+        var target = event.target;
+        if (!target || typeof target.closest !== 'function') return;
+
+        var legacyLauncher = target.closest('.mascot-launcher');
+        var legacySpeech = target.closest('.mascot-speech');
+        if (!legacyLauncher && !legacySpeech) return;
+
+        if (legacyLauncher) {
+          var legacyContainer = legacyLauncher.closest('.floating-mascot');
+          if (legacyContainer && legacyContainer.classList.contains('open')) return;
+        }
+
+        var smartLauncher = document.querySelector('.smart-guardinho-trigger');
+        if (!smartLauncher) return;
+
+        event.preventDefault();
+        event.stopPropagation();
+        smartLauncher.click();
+      }, true);
+    </script>
   </body>
 </html>
