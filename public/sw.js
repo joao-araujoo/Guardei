@@ -1,4 +1,4 @@
-const CACHE_NAME = 'guardei-v4';
+const CACHE_NAME = 'guardei-v5';
 const META_CACHE = 'guardei-meta-v1';
 const PERIODIC_TAG = 'guardei-smart-reminders-v1';
 const ASSETS = [
@@ -27,7 +27,6 @@ self.addEventListener('activate', event => {
 
 self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET') return;
-
   const requestUrl = new URL(event.request.url);
   if (requestUrl.origin !== self.location.origin) return;
 
@@ -52,8 +51,21 @@ self.addEventListener('fetch', event => {
 
 self.addEventListener('message', event => {
   if (event.data?.type !== 'SHOW_SMART_NOTIFICATION') return;
-  const payload = event.data.payload || {};
+  event.waitUntil(showSmartNotification(event.data.payload || {}));
+});
+
+self.addEventListener('push', event => {
+  let payload = {};
+  try {
+    payload = event.data?.json?.() || {};
+  } catch {
+    payload = { title: '👀 O Guardinho lembrou de você', body: event.data?.text?.() || 'Tem coisa boa criando poeira no seu acervo.' };
+  }
   event.waitUntil(showSmartNotification(payload));
+});
+
+self.addEventListener('pushsubscriptionchange', event => {
+  event.waitUntil(refreshPushSubscription());
 });
 
 self.addEventListener('periodicsync', event => {
@@ -76,7 +88,7 @@ self.addEventListener('notificationclick', event => {
     return;
   }
 
-  event.waitUntil(focusOrOpenApp(data.videoId));
+  event.waitUntil(focusOrOpenApp(data.videoId, data.appUrl));
 });
 
 async function networkFirstNavigation(request) {
@@ -93,24 +105,55 @@ async function networkFirstNavigation(request) {
 }
 
 async function showSmartNotification(payload) {
-  if (!payload.title || !payload.body) return;
-  await self.registration.showNotification(payload.title, {
-    body: payload.body,
-    icon: '/icons/guardei-icon.png',
-    badge: '/icons/guardei-icon-transparent.png',
-    tag: payload.videoId ? `guardei-smart-${payload.videoId}` : 'guardei-smart-reminder',
+  const title = payload.title || '👀 O Guardinho lembrou de você';
+  const body = payload.body || 'Tem coisa boa criando poeira no seu acervo.';
+  const actions = Array.isArray(payload.actions) && payload.actions.length
+    ? payload.actions.slice(0, 2)
+    : [
+        { action: 'open-link', title: 'Abrir link' },
+        { action: 'seen', title: 'Já vi' }
+      ];
+
+  await self.registration.showNotification(title, {
+    body,
+    icon: payload.icon || '/icons/guardei-icon.png',
+    badge: payload.badge || '/icons/guardei-icon-transparent.png',
+    tag: payload.tag || (payload.videoId ? `guardei-smart-${payload.videoId}` : 'guardei-smart-reminder'),
     renotify: false,
     requireInteraction: false,
     data: {
       videoId: payload.videoId || null,
       url: payload.url || null,
-      appUrl: payload.videoId ? `/?smart-nudge=${encodeURIComponent(payload.videoId)}` : '/'
+      appUrl: payload.appUrl || (payload.videoId ? `/?smart-nudge=${encodeURIComponent(payload.videoId)}` : '/')
     },
-    actions: [
-      { action: 'open-link', title: 'Abrir link' },
-      { action: 'seen', title: 'Já vi' }
-    ]
+    actions
   });
+}
+
+async function refreshPushSubscription() {
+  try {
+    const response = await fetch('/api/push/public-key', { credentials: 'include', headers: { Accept: 'application/json' } });
+    if (!response.ok) return;
+    const config = await response.json();
+    if (!config?.enabled || !config.publicKey) return;
+
+    const subscription = await self.registration.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(config.publicKey)
+    });
+
+    await fetch('/api/push/subscribe', {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ subscription: subscription.toJSON(), userAgent: 'service-worker-refresh' })
+    });
+
+    const clients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    clients.forEach(client => client.postMessage({ type: 'PUSH_SUBSCRIPTION_REFRESH' }));
+  } catch {
+    // The foreground bootstrap will retry on the next app open/focus.
+  }
 }
 
 async function runPeriodicSmartReminder() {
@@ -129,14 +172,10 @@ async function runPeriodicSmartReminder() {
     if (!candidate) return;
 
     const copy = buildBackgroundCopy(candidate);
-    await showSmartNotification({
-      ...copy,
-      videoId: candidate.id,
-      url: candidate.url
-    });
+    await showSmartNotification({ ...copy, videoId: candidate.id, url: candidate.url });
     await writeLastPeriodicReminder(Date.now());
   } catch {
-    // Background reminders are best-effort. The in-app engine remains the fallback.
+    // Server-driven Web Push is the primary background path; this remains a progressive fallback.
   }
 }
 
@@ -164,27 +203,15 @@ function buildBackgroundCopy(video) {
   const title = truncate(video.titleCustom || video.titleAi || video.titleOriginal || 'esse link', 58);
 
   if (video.status === 'importante' || video.priority === 'alta') {
-    return {
-      title: '⭐ Importante, lembra?',
-      body: `“${title}” está há ${ageDays} dias esperando o tratamento VIP que você prometeu.`
-    };
+    return { title: '⭐ Importante, lembra?', body: `“${title}” está há ${ageDays} dias esperando o tratamento VIP que você prometeu.` };
   }
   if (ageDays >= 45) {
-    return {
-      title: '🗿 Achado arqueológico',
-      body: `“${title}” está guardado há ${ageDays} dias. Isso é acervo ou sítio histórico?`
-    };
+    return { title: '🗿 Achado arqueológico', body: `“${title}” está guardado há ${ageDays} dias. Isso é acervo ou sítio histórico?` };
   }
   if (ageDays >= 21) {
-    return {
-      title: '🫣 A gente precisa falar sobre isso',
-      body: `Faz ${ageDays} dias que você salvou “${title}”. Eu finjo que não vi ou você abre?`
-    };
+    return { title: '🫣 A gente precisa falar sobre isso', body: `Faz ${ageDays} dias que você salvou “${title}”. Eu finjo que não vi ou você abre?` };
   }
-  return {
-    title: '👀 Uma semana depois…',
-    body: `Você salvou “${title}” e nunca mais voltou. Coincidência? O Guardinho acha que não.`
-  };
+  return { title: '👀 Uma semana depois…', body: `Você salvou “${title}” e nunca mais voltou. Coincidência? O Guardinho acha que não.` };
 }
 
 async function canSendPeriodicReminder() {
@@ -209,20 +236,16 @@ async function markVideoSeenAndOpen(videoId) {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
-      body: JSON.stringify({
-        status: 'aplicado',
-        watchedAt: now,
-        reviewedAt: now
-      })
+      body: JSON.stringify({ status: 'aplicado', watchedAt: now, reviewedAt: now })
     });
   } catch {
-    // If the API is unavailable, opening the app still lets the user update manually.
+    // Opening the app still lets the user update manually if the API is unavailable.
   }
   await focusOrOpenApp(videoId);
 }
 
-async function focusOrOpenApp(videoId) {
-  const appUrl = videoId ? `/?smart-nudge=${encodeURIComponent(videoId)}` : '/';
+async function focusOrOpenApp(videoId, explicitAppUrl = '') {
+  const appUrl = explicitAppUrl || (videoId ? `/?smart-nudge=${encodeURIComponent(videoId)}` : '/');
   const windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
   const existing = windows.find(client => new URL(client.url).origin === self.location.origin);
   if (existing) {
@@ -231,6 +254,13 @@ async function focusOrOpenApp(videoId) {
     return;
   }
   await self.clients.openWindow(appUrl);
+}
+
+function urlBase64ToUint8Array(value) {
+  const padding = '='.repeat((4 - (value.length % 4)) % 4);
+  const base64 = (value + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const raw = atob(base64);
+  return Uint8Array.from([...raw].map(char => char.charCodeAt(0)));
 }
 
 function truncate(value, maxLength) {
