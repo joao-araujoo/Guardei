@@ -24,10 +24,20 @@ router.patch("/", async (req, res, next) => {
         userId: req.user.id,
         dailyReviewTarget: normalizeDailyTarget(patch.dailyReviewTarget),
         autoOpenReviewAfterShare: Boolean(patch.autoOpenReviewAfterShare),
+        smartNotificationsEnabled: Boolean(patch.smartNotificationsEnabled),
+        clipboardSuggestionsEnabled: patch.clipboardSuggestionsEnabled === undefined ? true : Boolean(patch.clipboardSuggestionsEnabled),
+        guardinhoActionsEnabled: patch.guardinhoActionsEnabled === undefined ? true : Boolean(patch.guardinhoActionsEnabled),
+        recommendationMode: normalizeRecommendationMode(patch.recommendationMode),
+        notificationFrequency: normalizeNotificationFrequency(patch.notificationFrequency),
       },
       update: {
         ...(patch.dailyReviewTarget !== undefined ? { dailyReviewTarget: normalizeDailyTarget(patch.dailyReviewTarget) } : {}),
         ...(patch.autoOpenReviewAfterShare !== undefined ? { autoOpenReviewAfterShare: Boolean(patch.autoOpenReviewAfterShare) } : {}),
+        ...(patch.smartNotificationsEnabled !== undefined ? { smartNotificationsEnabled: Boolean(patch.smartNotificationsEnabled) } : {}),
+        ...(patch.clipboardSuggestionsEnabled !== undefined ? { clipboardSuggestionsEnabled: Boolean(patch.clipboardSuggestionsEnabled) } : {}),
+        ...(patch.guardinhoActionsEnabled !== undefined ? { guardinhoActionsEnabled: Boolean(patch.guardinhoActionsEnabled) } : {}),
+        ...(patch.recommendationMode !== undefined ? { recommendationMode: normalizeRecommendationMode(patch.recommendationMode) } : {}),
+        ...(patch.notificationFrequency !== undefined ? { notificationFrequency: normalizeNotificationFrequency(patch.notificationFrequency) } : {}),
       },
     });
     res.json(fromDbSettings(settings));
@@ -50,12 +60,25 @@ function normalizeDailyTarget(value) {
   return Math.min(10, Math.max(1, Math.round(target)));
 }
 
+function normalizeRecommendationMode(value) {
+  return ["smart", "manual"].includes(value) ? value : "smart";
+}
+
+function normalizeNotificationFrequency(value) {
+  return ["light", "balanced", "frequent"].includes(value) ? value : "balanced";
+}
+
 function fromDbSettings(settings) {
   return {
     dailyReviewTarget: settings.dailyReviewTarget,
     autoOpenReviewAfterShare: settings.autoOpenReviewAfterShare,
     storageMode: settings.storageMode,
     backendReady: settings.backendReady,
+    smartNotificationsEnabled: settings.smartNotificationsEnabled,
+    clipboardSuggestionsEnabled: settings.clipboardSuggestionsEnabled,
+    guardinhoActionsEnabled: settings.guardinhoActionsEnabled,
+    recommendationMode: settings.recommendationMode,
+    notificationFrequency: settings.notificationFrequency,
   };
 }
 
