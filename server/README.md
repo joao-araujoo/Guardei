@@ -26,6 +26,8 @@ As chaves VAPID devem permanecer as mesmas em producao. Troca-las invalida as in
 
 O scheduler interno verifica notificacoes periodicamente. Para infraestrutura que dorme ou escala para zero, configure tambem um cron externo chamando `POST /api/push/cron` com o header `X-Push-Cron-Secret` igual a `PUSH_CRON_SECRET`.
 
+Ao clonar do zero, use `npm install` no backend nesta versao; ele instala `web-push` e sincroniza o lockfile local antes dos demais comandos.
+
 ## Endpoints principais
 
 - `POST /api/auth/register`
