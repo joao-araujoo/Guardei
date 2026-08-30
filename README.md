@@ -2,107 +2,175 @@
   <img width="400" height="230" alt="guardei-logo" src="https://github.com/user-attachments/assets/a90dda4f-3977-4ad6-8506-3cdd961b122b" />
 </p>
 
-# Guardei - O Seu Acervo Digital Inteligente 🗂️
+# Guardei — memória auxiliar para a internet
 
-![Status do Projeto](https://img.shields.io/badge/status-em%20produção-orange)
-![Tech Stack](https://img.shields.io/badge/stack-React%20%7C%20Node.js%20%7C%20Gemini%20AI-00E676)
-![Tipo](https://img.shields.io/badge/projeto-solo-blueviolet)
+O Guardei existe para reduzir o caminho entre **encontrar algo → guardar → reencontrar → entender → usar**.
 
-<p align="center">
-  <strong>Salve, organize e revisite links importantes da internet com o poder da Inteligência Artificial.</strong>
-</p>
+A experiência principal é deliberadamente simples: a pessoa pode continuar no navegador, celular ou mensageiro que já usa. O Guardei recebe o conteúdo, organiza por baixo e traz de volta quando existe motivo para isso.
 
----
+## Princípios do produto
 
-## Sobre o projeto
+1. **Guardar deve exigir quase zero decisão.** Categoria, tags, embeddings e snapshot não são trabalho do usuário.
+2. **Encontrar não depende de lembrar onde algo foi colocado.** Busca textual + semântica + síntese do próprio acervo.
+3. **O acervo precisa voltar a ser útil.** Hoje, Guardinho, lembretes, digest e repetição espaçada reativam conteúdo relevante.
+4. **Consumir não significa aplicar.** O Ciclo de Conhecimento separa consumo, reflexão, memória e aplicação real.
+5. **Complexidade fica por baixo.** A Home prioriza Hoje; recursos avançados existem sem competir pela atenção inicial.
 
-O Guardei é uma PWA para transformar links esquecidos em um acervo ativo. Ele recebe links manualmente, pelo clipboard e pelo menu de compartilhamento compatível, classifica e organiza automaticamente e usa o Guardinho para recomendar, lembrar e executar ações seguras sobre o acervo.
+## O que existe hoje
 
-## Principais funcionalidades
+### Captura universal
 
-- salvamento e deduplicação de links;
-- classificação automática com Gemini e fallback local;
-- contas e acervo isolado por usuário;
+- link manual, clipboard e Web Share Target;
+- centro **Guardar** com atalho `Ctrl/Cmd + K`;
+- motivo rápido: ver depois, usar, aprender, inspirar ou comprar;
+- screenshot pesquisável com visão/OCR quando habilitado;
+- pensamentos rápidos que também entram na busca semântica;
+- importação de favoritos HTML/CSV com deduplicação;
+- snapshot textual seguro de páginas para não depender somente de uma URL viva;
+- token de captura restrito para integrações e extensão.
+
+### Extensão do navegador
+
+A pasta `extension/` contém uma extensão Manifest V3 pronta para carregar em modo desenvolvedor:
+
+- guardar página ativa em um clique;
+- guardar screenshot visível;
+- menu de contexto;
+- selecionar rapidamente a intenção do salvamento;
+- mostrar discretamente **“você já guardou coisas sobre isso”** ao encontrar relação entre a página atual e o acervo.
+
+O token `gcp_...` usado pela extensão só é aceito nas rotas de captura e pode ser revogado dentro do Guardei.
+
+### Guardinho e reencontro
+
 - recomendações contextuais;
-- Guardinho com ações para salvar, organizar, categorizar, arquivar, marcar visto e destacar conteúdos;
-- lembretes inteligentes e bem-humorados;
-- Web Push com VAPID para a PWA instalada, inclusive com o app fechado;
-- subscriptions de push por dispositivo e limpeza no logout;
-- Service Worker com ações nas notificações;
-- PWA com Web Share Target em plataformas compatíveis;
-- backup/importação JSON;
-- conquistas e métricas de consumo.
+- ações seguras sobre o acervo;
+- recuperação semântica antes de responder;
+- lembretes in-app e Web Push;
+- **Lembra disso?** para conteúdos antigos que ainda têm sinal de valor;
+- digest semanal com destaques, itens ressurgidos e candidatos à limpeza;
+- síntese **“O que eu já sei sobre X?”** baseada somente no acervo real do usuário.
 
-## Rodar o frontend
+### Conhecimento
 
-```bash
-npm install
-npm run dev
-```
+- Cápsulas Inteligentes;
+- busca híbrida textual + semântica;
+- embeddings isolados do frontend;
+- Trilhas Inteligentes;
+- conexões e Mapa;
+- reflexões após consumo;
+- cartões de conhecimento;
+- repetição espaçada determinística;
+- aplicações reais com evidência/reflexão;
+- dashboard de conhecimento;
+- Central Hoje com sessões por tempo disponível.
 
-## Rodar o backend
+### Organização sem pastas obrigatórias
 
-```bash
-cd server
-npm install
-npm run db:generate
-npm run db:push
-npm run dev
-```
+- categorias e tags automáticas;
+- **Espaços automáticos** criados apenas quando categorias, conceitos ou tags realmente se repetem;
+- nenhuma estrutura vazia é criada só para parecer organizada.
 
-Variáveis principais:
+### Compartilhamento
 
-```env
-VITE_STORAGE_MODE=api
-VITE_API_BASE_URL=http://localhost:3333
-DATABASE_URL=connection_string_pooled_do_neon
-DATABASE_DIRECT_URL=connection_string_direta_do_neon
-AUTH_SECRET=um_segredo_com_pelo_menos_32_caracteres
-GEMINI_API_KEY=sua_chave_gemini
-```
+- coleções públicas com slug próprio;
+- página pública em `shared.html`;
+- visitantes podem abrir fontes sem conta;
+- usuário autenticado pode **Guardar tudo no meu Guardei** com deduplicação.
 
-Com `VITE_STORAGE_MODE=api`, contas, links, preferências e subscriptions ficam no backend/PostgreSQL. Sem essa variável, o app continua oferecendo o modo local para desenvolvimento.
+### Entrada pelo WhatsApp
 
-## Ativar Web Push no celular
+O backend possui integração para WhatsApp Cloud API:
 
-Depois de instalar as dependências do backend, gere as chaves VAPID uma única vez:
+- usuário gera um código temporário dentro do Guardei;
+- envia `GUARDEI <código>` para vincular o número;
+- depois pode encaminhar links ou pensamentos;
+- links usam o mesmo pipeline universal de captura;
+- textos sem URL entram como pensamento rápido.
 
-```bash
-npm --prefix server run push:keys
-```
+A integração só é ativada quando as credenciais oficiais da Meta são configuradas no ambiente.
 
-Coloque os valores gerados no ambiente permanente do backend:
+## Stack
 
-```env
-VAPID_PUBLIC_KEY=...
-VAPID_PRIVATE_KEY=...
-VAPID_SUBJECT=mailto:seu-email@dominio.com
-PUSH_SCHEDULER_ENABLED=true
-PUSH_SCHEDULER_INTERVAL_MINUTES=60
-PUSH_CRON_SECRET=um-segredo-longo-opcional
-```
+- React + Vite;
+- PWA + Service Worker + Web Share Target;
+- Node.js + Express;
+- PostgreSQL + Prisma;
+- Gemini com fallbacks determinísticos/local onde aplicável;
+- Web Push/VAPID;
+- extensão Manifest V3.
 
-Não troque as chaves VAPID depois que usuários estiverem inscritos, pois a troca invalida subscriptions existentes.
+## Rodar localmente
 
-Em produção, use HTTPS. Instale a PWA no celular, entre na conta e ative **Lembretes** pelo Guardinho. O dispositivo será inscrito automaticamente e receberá uma notificação de teste. O scheduler do backend passa então a enviar lembretes inteligentes mesmo quando o Guardei estiver fechado.
+Frontend:
 
-Se a infraestrutura do backend dormir ou escalar para zero, configure também um cron externo para chamar `POST /api/push/cron` com o header `X-Push-Cron-Secret`.
+    npm install
+    npm run dev
 
-## Scripts úteis
+Backend:
 
-```bash
-npm test
-npm run build
-npm --prefix server run db:generate
-npm --prefix server run db:push
-npm --prefix server run push:keys
-```
+    cd server
+    npm install
+    npm run db:generate
+    npm run dev
 
-## Estrutura
+Variáveis mínimas para modo API:
 
-- `src/` — frontend React/PWA;
-- `public/sw.js` — Service Worker, notificações e push;
-- `server/src/` — API Express;
-- `server/src/push/` — motor server-driven de Web Push;
-- `server/prisma/schema.prisma` — PostgreSQL/Prisma;
-- `tests/` — testes automatizados do produto inteligente.
+    VITE_STORAGE_MODE=api
+    VITE_API_BASE_URL=http://localhost:3333
+    DATABASE_URL=...
+    DATABASE_DIRECT_URL=...
+    AUTH_SECRET=...
+
+`GEMINI_API_KEY` é opcional para desenvolvimento: o produto mantém fallbacks onde existe alternativa segura.
+
+## Banco e deploy
+
+Para instalações que já possuem as migrations do Ciclo de Conhecimento, aplique a migration aditiva mais recente:
+
+    cd server
+    npx prisma migrate deploy
+    npx prisma generate
+
+O schema preserva os dados anteriores e adiciona captura universal, snapshots, assets, coleções, thoughts, digest, integrações e tokens de captura.
+
+## Web Push
+
+Gere as chaves uma vez:
+
+    npm --prefix server run push:keys
+
+Configure `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` e `VAPID_SUBJECT`. Não troque o par VAPID depois que dispositivos estiverem inscritos.
+
+## WhatsApp Cloud API
+
+Quando essa entrada for usada em produção, configure:
+
+- `WHATSAPP_VERIFY_TOKEN`;
+- `WHATSAPP_APP_SECRET`;
+- `WHATSAPP_ACCESS_TOKEN`;
+- `WHATSAPP_PHONE_NUMBER_ID`.
+
+O webhook deve apontar para `/api/integrations/whatsapp`.
+
+## Validação
+
+O CI principal executa:
+
+- instalação frontend/backend;
+- geração do Prisma Client;
+- syntax check de todo backend JavaScript;
+- testes do produto inteligente;
+- testes de Cápsulas, busca/trilhas e Ciclo de Conhecimento;
+- testes da camada Everywhere;
+- build de produção do frontend.
+
+## Arquitetura visual e regras para agentes
+
+Leia antes de alterar UI:
+
+- `DESIGN_SYSTEM.md` — fonte de verdade visual;
+- `AGENTS.md` — regras obrigatórias para agentes/IA;
+- `src/design-system.css` — tokens e fundação visual.
+
+Novas features não devem criar um novo design system, chat paralelo, launcher paralelo de Guardinho nem hacks globais no `index.html`.
