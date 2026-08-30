@@ -30,6 +30,8 @@ export function verifyRequestOrigin(req, res, next) {
   const origin = req.get("origin");
   if (!origin) return next();
 
+  if (isExtensionOrigin(origin) && req.path.startsWith("/api/capture")) return next();
+
   const allowed = new Set(parseOrigins(process.env.CORS_ORIGIN));
   const protocol = req.secure || req.get("x-forwarded-proto") === "https" ? "https" : "http";
   const host = req.get("host");
@@ -39,6 +41,10 @@ export function verifyRequestOrigin(req, res, next) {
     return res.status(403).json({ ok: false, code: "INVALID_ORIGIN", message: "Origem da requisicao nao permitida." });
   }
   return next();
+}
+
+export function isExtensionOrigin(origin) {
+  return /^(chrome-extension|moz-extension):\/\/[a-zA-Z0-9_-]+$/.test(String(origin || ""));
 }
 
 export function parseOrigins(value = "http://localhost:5173") {
