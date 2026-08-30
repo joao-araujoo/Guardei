@@ -13,11 +13,26 @@ jobs:
   validate:
     name: Build and validate
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    timeout-minutes: 20
+    env:
+      NODE_ENV: test
+      DATABASE_URL: postgresql://user:password@localhost:5432/guardei
+      DATABASE_DIRECT_URL: postgresql://user:password@localhost:5432/guardei
+      AUTH_SECRET: ci-secret-with-at-least-thirty-two-characters
+      NPM_CONFIG_FETCH_RETRIES: 3
+      NPM_CONFIG_FETCH_TIMEOUT: 60000
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Ensure public npm registry lockfiles
+        shell: bash
+        run: |
+          if grep -R 'packages.applied-caas-gateway1.internal.api.openai.org' package-lock.json server/package-lock.json; then
+            echo 'Internal registry URL found in a committed lockfile.'
+            exit 1
+          fi
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -29,26 +44,32 @@ jobs:
             server/package-lock.json
 
       - name: Install frontend dependencies
-        run: npm ci
+        run: npm ci --no-audit --no-fund
+
+      - name: Audit frontend dependencies
+        run: npm audit --audit-level=high
 
       - name: Install backend dependencies
-        run: npm install --prefix server
+        run: npm ci --prefix server --no-audit --no-fund
+
+      - name: Audit backend dependencies
+        run: npm audit --prefix server --audit-level=high
 
       - name: Generate Prisma client
         run: npm --prefix server run db:generate
-        env:
-          DATABASE_URL: postgresql://user:password@localhost:5432/guardei
-          DATABASE_DIRECT_URL: postgresql://user:password@localhost:5432/guardei
 
       - name: Check backend syntax
-        run: |
-          node --check server/src/index.js
-          node --check server/src/routes/pushRoutes.js
-          node --check server/src/push/webPush.js
-          node --check server/scripts/generate-vapid.js
+        shell: bash
+        run: find server/src server/scripts -name '*.js' -print0 | xargs -0 -n1 node --check
 
-      - name: Run smart product tests
+      - name: Validate backend initialization
+        run: node -e "import('./server/src/index.js').then(() => console.log('Backend initialized successfully'))"
+
+      - name: Run frontend product tests
         run: npm test
+
+      - name: Run backend knowledge tests
+        run: npm --prefix server test
 
       - name: Build frontend
         run: npm run build

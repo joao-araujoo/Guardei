@@ -4,6 +4,21 @@ import { buildAutoVideo } from './lib/aiClassifier.js';
 import { PLATFORM_OPTIONS, getPlatformMeta } from './lib/platforms.js';
 import { createRepository, exportVault, importVaultPayload } from './lib/storage.js';
 import { extractSupportedVideoUrl, getSharePayloadFromUrl } from './lib/tiktok.js';
+import CapsulePanel from './features/capsules/CapsulePanel.jsx';
+import SmartSearch from './features/search/SmartSearch.jsx';
+import PathsView from './features/paths/PathsView.jsx';
+import PathDetails from './features/paths/PathDetails.jsx';
+import RelatedItems from './features/connections/RelatedItems.jsx';
+import KnowledgeMap from './features/connections/KnowledgeMap.jsx';
+import ReflectionForm from './features/reflections/ReflectionForm.jsx';
+import KnowledgeCardPanel from './features/cards/KnowledgeCardPanel.jsx';
+import CardReviewSession from './features/cards/CardReviewSession.jsx';
+import ApplicationList from './features/applications/ApplicationList.jsx';
+import TodayHub from './features/today/TodayHub.jsx';
+import KnowledgeDashboard from './features/knowledge/KnowledgeDashboard.jsx';
+import { searchLibrary } from './services/searchService.js';
+import { pathService } from './services/pathService.js';
+import { knowledgeService } from './services/knowledgeService.js';
 import guardeiLogo from './assets/icons/guardei-logo.png';
 import guardeiMascot from './assets/mascot/guardei-mascot.png';
 
@@ -48,14 +63,20 @@ function IconSymbol({ name, size = 'normal' }) {
     target: 'lucide:target',
     smile: 'lucide:smile',
     gauge: 'lucide:gauge',
-    source: 'lucide:folder-input'
+    source: 'lucide:folder-input',
+    route: 'lucide:route',
+    map: 'lucide:network',
+    cards: 'lucide:gallery-vertical-end',
+    lightbulb: 'lucide:lightbulb',
+    practice: 'lucide:hammer',
+    calendar: 'lucide:calendar-days'
   };
   const sizeClass = size === 'large' ? 'icon-large' : size === 'small' ? 'icon-small' : '';
   return <span className={`icon-symbol ${sizeClass}`}><iconify-icon icon={icons[name] || icons.bookmark} /></span>;
 }
 
 const repository = createRepository();
-const DEFAULT_FILTERS = { query: '', category: 'all', status: 'active', platform: 'all' };
+const DEFAULT_FILTERS = { query: '', category: 'all', status: 'active', platform: 'all', capsule: 'all' };
 const DEFAULT_RECOMMENDATION = { time: 'any', mood: 'any', platform: 'all' };
 const ACHIEVEMENTS = [
   { id: 'first-save', icon: 'bookmark', tone: 'green', title: 'Primeiro Cofrinho', text: 'Salvar o primeiro item.', test: s => s.total >= 1 },
@@ -64,23 +85,23 @@ const ACHIEVEMENTS = [
   { id: 'save-25', icon: 'library', tone: 'pink', title: 'Colecionador', text: 'Salvar 25 itens.', test: s => s.total >= 25 },
   { id: 'save-50', icon: 'sparkles', tone: 'purple', title: 'Arquivo Vivo', text: 'Salvar 50 itens.', test: s => s.total >= 50 },
   { id: 'save-100', icon: 'trophy', tone: 'red', title: 'Guarda Mestre', text: 'Salvar 100 itens.', test: s => s.total >= 100 },
-  { id: 'first-watch', icon: 'eye', tone: 'green', title: 'Saiu do Depois', text: 'Marcar 1 item como visto.', test: s => s.watched >= 1 },
-  { id: 'watch-3', icon: 'check', tone: 'yellow', title: 'Três Revisões', text: 'Marcar 3 itens como vistos.', test: s => s.watched >= 3 },
-  { id: 'watch-5', icon: 'check', tone: 'blue', title: 'Fila Andando', text: 'Marcar 5 itens como vistos.', test: s => s.watched >= 5 },
-  { id: 'watch-10', icon: 'target', tone: 'pink', title: 'Ritmo Bom', text: 'Marcar 10 itens como vistos.', test: s => s.watched >= 10 },
-  { id: 'watch-15', icon: 'target', tone: 'purple', title: 'Revisor Fiel', text: 'Marcar 15 itens como vistos.', test: s => s.watched >= 15 },
-  { id: 'watch-30', icon: 'trophy', tone: 'red', title: 'Acervo Vivo', text: 'Marcar 30 itens como vistos.', test: s => s.watched >= 30 },
-  { id: 'watch-60', icon: 'zap', tone: 'greeFn', title: 'Sem Poeira', text: 'Marcar 60 itens como vistos.', test: s => s.watched >= 60 },
+  { id: 'first-watch', icon: 'eye', tone: 'green', title: 'Saiu do Depois', text: 'Marcar o primeiro item como consumido.', test: s => s.watched >= 1 },
+  { id: 'watch-3', icon: 'check', tone: 'yellow', title: 'Três Revisões', text: 'Registrar 3 conteúdos consumidos.', test: s => s.watched >= 3 },
+  { id: 'watch-5', icon: 'check', tone: 'blue', title: 'Fila Andando', text: 'Registrar 5 conteúdos consumidos.', test: s => s.watched >= 5 },
+  { id: 'watch-10', icon: 'target', tone: 'pink', title: 'Ritmo Bom', text: 'Registrar 10 conteúdos consumidos.', test: s => s.watched >= 10 },
+  { id: 'watch-15', icon: 'target', tone: 'purple', title: 'Revisor Fiel', text: 'Registrar 15 conteúdos consumidos.', test: s => s.watched >= 15 },
+  { id: 'watch-30', icon: 'trophy', tone: 'red', title: 'Acervo Vivo', text: 'Registrar 30 conteúdos consumidos.', test: s => s.watched >= 30 },
+  { id: 'watch-60', icon: 'zap', tone: 'greeFn', title: 'Sem Poeira', text: 'Registrar 60 conteúdos consumidos.', test: s => s.watched >= 60 },
   { id: 'hour-1', icon: 'clock', tone: 'yellow', title: 'Uma Hora Investida', text: 'Registrar 60 minutos assistidos.', test: s => s.minutes >= 60 },
   { id: 'hour-3', icon: 'clock', tone: 'blue', title: 'Sessão Tripla', text: 'Registrar 3 horas assistidas.', test: s => s.minutes >= 180 },
   { id: 'hour-5', icon: 'clock', tone: 'pink', title: 'Maratoninha Consciente', text: 'Registrar 5 horas assistidas.', test: s => s.minutes >= 300 },
   { id: 'hour-10', icon: 'gauge', tone: 'purple', title: 'Foco de Dez Horas', text: 'Registrar 10 horas assistidas.', test: s => s.minutes >= 600 },
   { id: 'hour-20', icon: 'zap', tone: 'red', title: 'Consumo com Memória', text: 'Registrar 20 horas assistidas.', test: s => s.minutes >= 1200 },
-  { id: 'categories-2', icon: 'palette', tone: 'green', title: 'Dois Mundos', text: 'Ter vistos em 2 categorias.', test: s => s.watchedCategories >= 2 },
-  { id: 'categories-3', icon: 'palette', tone: 'yellow', title: 'Explorador', text: 'Ter vistos em 3 categorias.', test: s => s.watchedCategories >= 3 },
-  { id: 'categories-5', icon: 'sparkles', tone: 'blue', title: 'Radar Aberto', text: 'Ter vistos em 5 categorias.', test: s => s.watchedCategories >= 5 },
-  { id: 'categories-7', icon: 'star', tone: 'pink', title: 'Curadoria Ampla', text: 'Ter vistos em 7 categorias.', test: s => s.watchedCategories >= 7 },
-  { id: 'categories-all', icon: 'trophy', tone: 'purple', title: 'Mapa Completo', text: 'Ter vistos em todas as categorias.', test: s => s.watchedCategories >= CATEGORIES.length },
+  { id: 'categories-2', icon: 'palette', tone: 'green', title: 'Dois Mundos', text: 'Consumir conteúdos em 2 categorias.', test: s => s.watchedCategories >= 2 },
+  { id: 'categories-3', icon: 'palette', tone: 'yellow', title: 'Explorador', text: 'Consumir conteúdos em 3 categorias.', test: s => s.watchedCategories >= 3 },
+  { id: 'categories-5', icon: 'sparkles', tone: 'blue', title: 'Radar Aberto', text: 'Consumir conteúdos em 5 categorias.', test: s => s.watchedCategories >= 5 },
+  { id: 'categories-7', icon: 'star', tone: 'pink', title: 'Curadoria Ampla', text: 'Consumir conteúdos em 7 categorias.', test: s => s.watchedCategories >= 7 },
+  { id: 'categories-all', icon: 'trophy', tone: 'purple', title: 'Mapa Completo', text: 'Consumir conteúdos em todas as categorias.', test: s => s.watchedCategories >= CATEGORIES.length },
   { id: 'important-1', icon: 'star', tone: 'yellow', title: 'Achei Ouro', text: 'Marcar 1 importante.', test: s => s.important >= 1 },
   { id: 'important-3', icon: 'star', tone: 'blue', title: 'Garimpo Bom', text: 'Ter 3 importantes.', test: s => s.important >= 3 },
   { id: 'important-10', icon: 'star', tone: 'red', title: 'Top 10 Tesouros', text: 'Ter 10 importantes.', test: s => s.important >= 10 },
@@ -90,7 +111,15 @@ const ACHIEVEMENTS = [
   { id: 'active-20', icon: 'book', tone: 'pink', title: 'Biblioteca Ativa', text: 'Manter 20 itens ativos.', test: s => s.active >= 20 },
   { id: 'short-5', icon: 'zap', tone: 'yellow', title: 'Minutinhos Valem', text: 'Ver 5 conteúdos curtos.', test: s => s.shortWatched >= 5 },
   { id: 'focus-5', icon: 'brain', tone: 'blue', title: 'Cabeça no Lugar', text: 'Ver 5 conteúdos focados.', test: s => s.focusWatched >= 5 },
-  { id: 'creative-5', icon: 'palette', tone: 'pink', title: 'Faísca Criativa', text: 'Ver 5 conteúdos criativos.', test: s => s.creativeWatched >= 5 }
+  { id: 'creative-5', icon: 'palette', tone: 'pink', title: 'Faísca Criativa', text: 'Ver 5 conteúdos criativos.', test: s => s.creativeWatched >= 5 },
+  { id: 'first-reflection', icon: 'lightbulb', tone: 'green', title: 'Aprendizado Registrado', text: 'Registrar a primeira reflexão.', test: s => s.reflectionCount >= 1 },
+  { id: 'first-active-review', icon: 'cards', tone: 'blue', title: 'Memória em Movimento', text: 'Concluir a primeira revisão ativa.', test: s => s.reviewAttemptCount >= 1 },
+  { id: 'remembered-5', icon: 'brain', tone: 'purple', title: 'Cinco Lembranças', text: 'Avaliar cinco cartões como Bom ou Fácil.', test: s => s.rememberedCount >= 5 },
+  { id: 'first-real-application', icon: 'practice', tone: 'yellow', title: 'Da Ideia à Prática', text: 'Concluir a primeira aplicação real.', test: s => s.applicationsCompleted >= 1 },
+  { id: 'review-week', icon: 'calendar', tone: 'pink', title: 'Semana de Recordação', text: 'Revisar por sete dias consecutivos.', test: s => s.reviewStreakDays >= 7 },
+  { id: 'applied-3', icon: 'check', tone: 'red', title: 'Três Aprendizados Aplicados', text: 'Concluir três aplicações reais.', test: s => s.contentsApplied >= 3 },
+  { id: 'recovered-card', icon: 'repeat', tone: 'green', title: 'Recuperei!', text: 'Lembrar um cartão que antes foi esquecido.', test: s => s.recoveredCount >= 1 },
+  { id: 'path-with-application', icon: 'route', tone: 'blue', title: 'Trilha que Virou Ação', text: 'Concluir uma trilha com aplicação registrada.', test: s => s.completedPathsWithApplications >= 1 }
 ];
 
 export default function App() {
@@ -119,19 +148,32 @@ export default function App() {
   const [mascotBubble, setMascotBubble] = useState('Quer que eu escolha algo rápido para você revisar?');
   const [mascotLoading, setMascotLoading] = useState(false);
   const [isInstallable, setIsInstallable] = useState(false);
+  const [smartSearchResults, setSmartSearchResults] = useState([]);
+  const [smartSearchMeta, setSmartSearchMeta] = useState({});
+  const [smartSearchLoading, setSmartSearchLoading] = useState(false);
+  const [paths, setPaths] = useState([]);
+  const [pathsLoading, setPathsLoading] = useState(false);
+  const [selectedPathId, setSelectedPathId] = useState(null);
+  const [activeReviewSession, setActiveReviewSession] = useState(null);
+  const [todayData, setTodayData] = useState(null);
+  const [knowledgeMetrics, setKnowledgeMetrics] = useState({});
+  const [knowledgeRefreshKey, setKnowledgeRefreshKey] = useState(0);
+  const [reflectionVideoId, setReflectionVideoId] = useState(null);
   const deferredPromptRef = useRef(null);
   const announcedAchievementsRef = useRef(new Set());
   const achievementsReadyRef = useRef(false);
   const pendingSharePayloadRef = useRef(null);
 
   const selectedVideo = useMemo(() => videos.find(video => video.id === selectedId) || null, [videos, selectedId]);
+  const selectedPath = useMemo(() => paths.find(path => path.id === selectedPathId) || null, [paths, selectedPathId]);
 
   const activeVideos = useMemo(() => videos.filter(video => video.status !== 'arquivado'), [videos]);
   const inboxVideos = useMemo(() => videos.filter(video => video.status === 'inbox'), [videos]);
   const importantVideos = useMemo(() => videos.filter(video => video.status === 'importante'), [videos]);
-  const appliedVideos = useMemo(() => videos.filter(video => video.status === 'aplicado'), [videos]);
+  const appliedVideos = useMemo(() => videos.filter(video => video.applicationStatus === 'completed' && video.appliedAt), [videos]);
   const watchStats = useMemo(() => buildWatchStats(videos), [videos]);
-  const earnedAchievements = useMemo(() => ACHIEVEMENTS.filter(achievement => achievement.test(watchStats)), [watchStats]);
+  const achievementStats = useMemo(() => ({ ...watchStats, ...knowledgeMetrics }), [watchStats, knowledgeMetrics]);
+  const earnedAchievements = useMemo(() => ACHIEVEMENTS.filter(achievement => achievement.test(achievementStats)), [achievementStats]);
 
   const dailyQueue = useMemo(() => {
     return [...videos]
@@ -165,6 +207,10 @@ export default function App() {
       if (filters.status === 'active' && video.status === 'arquivado') return false;
       if (filters.status !== 'active' && filters.status !== 'all' && video.status !== filters.status) return false;
       if (filters.platform !== 'all' && (video.platform || 'tiktok') !== filters.platform) return false;
+      if (filters.capsule === 'with' && !video.capsule) return false;
+      if (filters.capsule === 'without' && video.capsule) return false;
+      if (filters.capsule === 'complete' && video.capsule?.status !== 'completed') return false;
+      if (filters.capsule === 'limited' && video.capsule?.status !== 'limited') return false;
       if (!query) return true;
       const haystack = [video.titleCustom, video.titleAi, video.titleOriginal, video.authorName, video.category, video.reason, video.note, video.summary, video.bestFor, video.watchWhen, video.mood, video.effort, video.platform, ...(video.tags || [])].join(' ').toLowerCase();
       return haystack.includes(query);
@@ -254,6 +300,146 @@ export default function App() {
     return () => window.clearInterval(timer);
   }, [authChecked, mascotOpen]);
 
+  useEffect(() => {
+    if (!authChecked || !user || !['paths', 'path-details', 'map'].includes(view)) return;
+    if (paths.length) return;
+    loadPaths();
+  }, [authChecked, user, view]);
+
+  useEffect(() => {
+    if (!authChecked || !user) return;
+    let active = true;
+    knowledgeService.dashboard(30).then(data => active && setKnowledgeMetrics(data.metrics || {})).catch(() => {});
+    return () => { active = false; };
+  }, [authChecked, user, knowledgeRefreshKey]);
+
+  async function loadPaths() {
+    setPathsLoading(true);
+    try {
+      const data = await pathService.list();
+      setPaths(data.paths || []);
+      return data.paths || [];
+    } catch (error) {
+      showToast(error.message || 'Não foi possível carregar as trilhas');
+      return [];
+    } finally {
+      setPathsLoading(false);
+    }
+  }
+
+  async function handleSmartSearch(params) {
+    setSmartSearchLoading(true);
+    try {
+      const data = await searchLibrary(params);
+      setSmartSearchResults(data.results || []);
+      setSmartSearchMeta(data);
+    } catch (error) {
+      showToast(error.message || 'Busca inteligente indisponível');
+      setSmartSearchResults([]);
+      setSmartSearchMeta({ query: params.q, mode: 'textual_fallback', total: 0 });
+    } finally {
+      setSmartSearchLoading(false);
+    }
+  }
+
+  function clearSmartSearch() {
+    setSmartSearchResults([]);
+    setSmartSearchMeta({});
+  }
+
+  async function createLearningPath(payload) {
+    setPathsLoading(true);
+    try {
+      const data = await pathService.create(payload);
+      setPaths(current => [data.path, ...current.filter(path => path.id !== data.path.id)]);
+      setSelectedPathId(data.path.id);
+      setView('path-details');
+      showToast(data.path.items?.length ? 'Trilha criada e organizada' : 'Trilha criada; lacunas foram identificadas');
+      return data.path;
+    } catch (error) {
+      showToast(error.message || 'Não foi possível criar a trilha');
+      return null;
+    } finally {
+      setPathsLoading(false);
+    }
+  }
+
+  async function refreshLearningPath(pathId = selectedPathId) {
+    if (!pathId) return null;
+    const data = await pathService.get(pathId);
+    setPaths(current => current.map(path => path.id === pathId ? data.path : path));
+    return data.path;
+  }
+
+  async function updateLearningPath(patch) {
+    try {
+      const data = await pathService.update(selectedPathId, patch);
+      setPaths(current => current.map(path => path.id === selectedPathId ? data.path : path));
+      showToast('Trilha atualizada');
+      return data.path;
+    } catch (error) { showToast(error.message); return null; }
+  }
+
+  async function updateLearningPathItem(itemId, patch) {
+    try {
+      const data = await pathService.updateItem(selectedPathId, itemId, patch);
+      setPaths(current => current.map(path => path.id === selectedPathId ? data.path : path));
+    } catch (error) { showToast(error.message); }
+  }
+
+  async function removeLearningPathItem(itemId) {
+    try { await pathService.removeItem(selectedPathId, itemId); await refreshLearningPath(); } catch (error) { showToast(error.message); }
+  }
+
+  async function reorderLearningPath(items) {
+    try {
+      const data = await pathService.reorder(selectedPathId, items);
+      setPaths(current => current.map(path => path.id === selectedPathId ? data.path : path));
+    } catch (error) { showToast(error.message); }
+  }
+
+  async function reorganizeLearningPath() {
+    setPathsLoading(true);
+    try {
+      const data = await pathService.reorganize(selectedPathId);
+      setPaths(current => current.map(path => path.id === selectedPathId ? data.path : path));
+      showToast('Trilha reorganizada sem remover suas alterações manuais');
+    } catch (error) { showToast(error.message); } finally { setPathsLoading(false); }
+  }
+
+  async function addLearningPathItem(payload) {
+    try {
+      const data = await pathService.addItem(selectedPathId, payload);
+      setPaths(current => current.map(path => path.id === selectedPathId ? data.path : path));
+      showToast('Conteúdo adicionado à trilha');
+    } catch (error) { showToast(error.message); }
+  }
+
+  async function updateLearningPathGap(gapId, patch) {
+    try {
+      const data = await pathService.updateGap(selectedPathId, gapId, patch);
+      setPaths(current => current.map(path => path.id === selectedPathId ? data.path : path));
+    } catch (error) { showToast(error.message); }
+  }
+
+  async function duplicateLearningPath() {
+    try {
+      const data = await pathService.duplicate(selectedPathId);
+      setPaths(current => [data.path, ...current]);
+      showToast('Trilha duplicada');
+    } catch (error) { showToast(error.message); }
+  }
+
+  async function deleteLearningPath() {
+    try {
+      await pathService.remove(selectedPathId);
+      setPaths(current => current.filter(path => path.id !== selectedPathId));
+      setSelectedPathId(null);
+      setView('paths');
+      showToast('Trilha excluída');
+    } catch (error) { showToast(error.message); }
+  }
+
   function showToast(message) {
     setToast(message);
     window.clearTimeout(showToast.timer);
@@ -290,6 +476,9 @@ export default function App() {
     setVideos([]);
     setSettings(null);
     setSelectedId(null);
+    setSelectedPathId(null);
+    setPaths([]);
+    clearSmartSearch();
     setView('home');
     showToast('Sessão encerrada');
   }
@@ -374,9 +563,18 @@ export default function App() {
 
   async function updateVideo(id, patch) {
     const updated = await repository.updateVideo(id, patch);
-    const next = videos.map(video => video.id === id ? { ...video, ...patch, updatedAt: new Date().toISOString() } : video);
+    const saved = updated?.video || updated;
+    const next = videos.map(video => video.id === id ? { ...video, ...patch, ...(saved || {}), updatedAt: saved?.updatedAt || new Date().toISOString() } : video);
     setVideos(next);
-    return updated;
+    return saved;
+  }
+
+  function refreshKnowledgeCycle() {
+    setKnowledgeRefreshKey(value => value + 1);
+  }
+
+  function updateVideoCapsule(id, capsule) {
+    setVideos(current => current.map(video => video.id === id ? { ...video, capsule } : video));
   }
 
   async function deleteVideo(id) {
@@ -397,16 +595,39 @@ export default function App() {
     showToast(STATUS[status]?.label || 'Atualizado');
   }
 
-  async function markWatched(id, minutes = 5) {
+  async function markConsumed(id, minutes = 5, { advanceReview = false } = {}) {
     const current = videos.find(video => video.id === id);
+    const consumedAt = new Date().toISOString();
     const watchedSeconds = Math.max(0, Number(minutes || 0) * 60);
     await updateVideo(id, {
-      status: 'aplicado',
-      watchedAt: new Date().toISOString(),
+      consumedAt,
+      watchedAt: consumedAt,
       watchedSeconds,
-      watchCount: (current?.watchCount || 0) + 1
+      watchCount: (current?.watchCount || 0) + 1,
+      ...(advanceReview ? { reviewedAt: consumedAt, reviewCount: (current?.reviewCount || 0) + 1 } : {})
     });
-    pushMascotMessage(`Boa. "${getDisplayTitle(current)}" entrou no seu histórico. Quer que eu escolha o próximo?`);
+    setReflectionVideoId(id);
+    setSelectedId(id);
+    if (advanceReview) setReviewIndex(index => Math.min(index + 1, Math.max(reviewQueue.length - 1, 0)));
+    refreshKnowledgeCycle();
+    pushMascotMessage(`Boa. "${getDisplayTitle(current)}" foi registrado como consumido. Aplicar é uma etapa separada — quer anotar rapidamente o que aprendeu?`);
+    showToast('Conteúdo marcado como consumido');
+  }
+
+  function startCardReview(session) {
+    setActiveReviewSession(session || { minutes: 5, cards: [] });
+    setView('card-review');
+  }
+
+  async function openPathFromToday(pathId) {
+    if (!paths.some(path => path.id === pathId)) await loadPaths();
+    setSelectedPathId(pathId);
+    setView('path-details');
+  }
+
+  function openApplicationsFromToday(videoId) {
+    if (videoId) setSelectedId(videoId);
+    else showToast('Abra um conteúdo para criar uma aplicação concreta.');
   }
 
   function pushMascotMessage(text) {
@@ -547,12 +768,15 @@ export default function App() {
           <NavButton active={view === 'home'} onClick={() => setView('home')}>Home</NavButton>
           <NavButton active={view === 'review'} onClick={() => setView('review')}>Revisar</NavButton>
           <NavButton active={view === 'library'} onClick={() => setView('library')}>Biblioteca</NavButton>
+          <NavButton active={view === 'paths' || view === 'path-details'} onClick={() => setView('paths')}>Trilhas</NavButton>
+          <NavButton active={view === 'map'} onClick={() => setView('map')}>Mapa</NavButton>
           <NavButton active={view === 'dashboard'} onClick={() => setView('dashboard')}>Dashboard</NavButton>
           <NavButton active={view === 'achievements'} onClick={() => setView('achievements')}>Conquistas</NavButton>
           <NavButton active={view === 'settings'} onClick={() => setView('settings')}>Configurações</NavButton>
         </nav>
 
         <div className="top-actions">
+          {!!todayData?.counts?.dueCards && <button className="count-pill review-count-pill" onClick={() => startCardReview({ minutes: 5, cards: todayData.cards || [] })} aria-label={`${todayData.counts.dueCards} cartões pendentes para revisar`}>{todayData.counts.dueCards} para recordar</button>}
           <span className="count-pill">{videos.length} itens salvos</span>
           {user && (
             <div className="user-menu">
@@ -579,6 +803,12 @@ export default function App() {
             isInstallable={isInstallable}
             installApp={installApp}
             pasteFromClipboard={pasteFromClipboard}
+            knowledgeRefreshKey={knowledgeRefreshKey}
+            onStartReview={startCardReview}
+            onOpenPath={openPathFromToday}
+            onOpenApplications={openApplicationsFromToday}
+            onTodayData={setTodayData}
+            onNotify={showToast}
           />
         )}
 
@@ -603,9 +833,21 @@ export default function App() {
             reviewIndex={reviewIndex}
             setReviewIndex={setReviewIndex}
             markReview={markReview}
+            markConsumed={markConsumed}
             openVideo={openVideo}
             setSelectedId={setSelectedId}
             randomVideo={randomVideo}
+          />
+        )}
+
+        {view === 'card-review' && (
+          <CardReviewSession
+            initialCards={activeReviewSession?.cards || []}
+            minutes={activeReviewSession?.minutes || 5}
+            onClose={() => { setActiveReviewSession(null); setView('home'); refreshKnowledgeCycle(); }}
+            onOpenVideo={setSelectedId}
+            onChanged={refreshKnowledgeCycle}
+            onNotify={showToast}
           />
         )}
 
@@ -617,15 +859,48 @@ export default function App() {
             setFilters={setFilters}
             setSelectedId={setSelectedId}
             deleteVideo={deleteVideo}
+            smartResults={smartSearchResults}
+            smartMeta={smartSearchMeta}
+            smartLoading={smartSearchLoading}
+            onSmartSearch={handleSmartSearch}
+            onClearSmartSearch={clearSmartSearch}
           />
         )}
 
+        {view === 'paths' && (
+          <PathsView paths={paths} loading={pathsLoading} categories={CATEGORIES} onCreate={createLearningPath} onOpen={id => { setSelectedPathId(id); setView('path-details'); }} />
+        )}
+
+        {view === 'path-details' && selectedPath && (
+          <PathDetails
+            path={selectedPath}
+            videos={videos}
+            loading={pathsLoading}
+            onBack={() => setView('paths')}
+            onOpenVideo={setSelectedId}
+            onUpdate={updateLearningPath}
+            onUpdateItem={updateLearningPathItem}
+            onRemoveItem={removeLearningPathItem}
+            onReorder={reorderLearningPath}
+            onReorganize={reorganizeLearningPath}
+            onDuplicate={duplicateLearningPath}
+            onDelete={deleteLearningPath}
+            onAddItem={addLearningPathItem}
+            onUpdateGap={updateLearningPathGap}
+            onTalk={() => { setMascotInput(`O que eu deveria fazer agora na trilha ${selectedPath.title}?`); setMascotOpen(true); }}
+          />
+        )}
+
+        {view === 'map' && (
+          <KnowledgeMap categories={CATEGORIES} paths={paths} onOpenItem={setSelectedId} />
+        )}
+
         {view === 'dashboard' && (
-          <DashboardView videos={videos} stats={watchStats} setSelectedId={setSelectedId} openMascot={() => setMascotOpen(true)} />
+          <DashboardView videos={videos} stats={achievementStats} setSelectedId={setSelectedId} openMascot={() => setMascotOpen(true)} knowledgeRefreshKey={knowledgeRefreshKey} onMetrics={setKnowledgeMetrics} onNotify={showToast} />
         )}
 
         {view === 'achievements' && (
-          <AchievementsView achievements={ACHIEVEMENTS} earned={earnedAchievements} stats={watchStats} />
+          <AchievementsView achievements={ACHIEVEMENTS} earned={earnedAchievements} stats={achievementStats} />
         )}
 
         {view === 'settings' && (
@@ -650,7 +925,13 @@ export default function App() {
           onUpdate={patch => updateVideo(selectedVideo.id, patch)}
           onDelete={() => deleteVideo(selectedVideo.id)}
           onOpen={() => openVideo(selectedVideo)}
-          onMarkWatched={markWatched}
+          onMarkConsumed={markConsumed}
+          reflectionExpanded={reflectionVideoId === selectedVideo.id}
+          paths={paths}
+          onKnowledgeChanged={() => { refreshKnowledgeCycle(); loadVaultData(); }}
+          onCapsuleChange={capsule => updateVideoCapsule(selectedVideo.id, capsule)}
+          onNotify={showToast}
+          onOpenRelated={setSelectedId}
         />
       )}
 
@@ -735,7 +1016,7 @@ function AuthView({ mode, setMode, form, setForm, onSubmit, loading }) {
   );
 }
 
-function HomeView({ videos, dailyQueue, inboxVideos, importantVideos, appliedVideos, setView, setSelectedId, randomVideo, recommendation, setRecommendation, isInstallable, installApp, pasteFromClipboard }) {
+function HomeView({ videos, dailyQueue, inboxVideos, importantVideos, appliedVideos, setView, setSelectedId, randomVideo, recommendation, setRecommendation, isInstallable, installApp, pasteFromClipboard, knowledgeRefreshKey, onStartReview, onOpenPath, onOpenApplications, onTodayData, onNotify }) {
   return (
     <section className="view-stack">
       <div className="hero-panel">
@@ -750,6 +1031,16 @@ function HomeView({ videos, dailyQueue, inboxVideos, importantVideos, appliedVid
           {isInstallable && <button className="secondary-btn" onClick={installApp}>Instalar App</button>}
         </div>
       </div>
+
+      <TodayHub
+        refreshKey={knowledgeRefreshKey}
+        onStartReview={onStartReview}
+        onOpenVideo={setSelectedId}
+        onOpenPath={onOpenPath}
+        onOpenApplications={onOpenApplications}
+        onNotify={onNotify}
+        onData={onTodayData}
+      />
 
       <div className="stats-grid">
         <StatCard label="No acervo" value={videos.length} icon="book" />
@@ -791,13 +1082,36 @@ function HomeView({ videos, dailyQueue, inboxVideos, importantVideos, appliedVid
               {PLATFORM_OPTIONS.map(platform => <option key={platform.id} value={platform.id}>{platform.label}</option>)}
             </select>
           </div>
-          <div className="roulette-card" onClick={() => randomVideo(recommendation)} role="button" tabIndex={0}>
+          <div
+            className="roulette-card"
+            onClick={() => randomVideo(recommendation)}
+            onKeyDown={event => {
+              if (!['Enter', ' '].includes(event.key)) return;
+              event.preventDefault();
+              randomVideo(recommendation);
+            }}
+            role="button"
+            tabIndex={0}
+            aria-label="Sortear uma recomendação do acervo"
+          >
             <IconSymbol name="star" />
             <strong>Deixa a IA escolher</strong>
             <small>baseado em tempo livre, humor e energia mental</small>
           </div>
         </Panel>
       </div>
+
+      {videos.some(video => video.capsule && ['completed', 'limited'].includes(video.capsule.status)) && (
+        <Panel title="Conhecimento recém-extraído">
+          <div className="capsule-preview-list">
+            {[...videos]
+              .filter(video => video.capsule && ['completed', 'limited'].includes(video.capsule.status))
+              .sort((a, b) => new Date(b.capsule.generatedAt || b.capsule.updatedAt || 0) - new Date(a.capsule.generatedAt || a.capsule.updatedAt || 0))
+              .slice(0, 3)
+              .map(video => <CapsulePreviewRow key={video.id} video={video} onClick={() => setSelectedId(video.id)} />)}
+          </div>
+        </Panel>
+      )}
 
       <Panel title="Fontes favoritas">
         <div className="platform-wall">
@@ -873,7 +1187,7 @@ function AddView({ input, manualTitle, sourceText, setInput, setManualTitle, set
   );
 }
 
-function ReviewView({ video, queueLength, reviewIndex, setReviewIndex, markReview, openVideo, setSelectedId, randomVideo }) {
+function ReviewView({ video, queueLength, reviewIndex, setReviewIndex, markReview, markConsumed, openVideo, setSelectedId, randomVideo }) {
   if (!video) {
     return (
       <section className="center-view">
@@ -897,7 +1211,7 @@ function ReviewView({ video, queueLength, reviewIndex, setReviewIndex, markRevie
         <button onClick={() => markReview(video.id, 'rever')}>Rever Depois</button>
         <button className="open" onClick={() => openVideo(video)}>Abrir</button>
         <button onClick={() => markReview(video.id, 'importante')}>Importante</button>
-        <button onClick={() => markReview(video.id, 'aplicado')}>Já Usei</button>
+        <button onClick={() => markConsumed(video.id, Math.max(5, Math.round((video.watchedSeconds || 0) / 60) || 5), { advanceReview: true })}>Marcar consumido</button>
       </div>
 
       <div className="review-nav">
@@ -908,7 +1222,7 @@ function ReviewView({ video, queueLength, reviewIndex, setReviewIndex, markRevie
   );
 }
 
-function LibraryView({ videos, total, filters, setFilters, setSelectedId, deleteVideo }) {
+function LibraryView({ videos, total, filters, setFilters, setSelectedId, deleteVideo, smartResults, smartMeta, smartLoading, onSmartSearch, onClearSmartSearch }) {
   return (
     <section className="view-stack">
       <div className="library-head">
@@ -916,13 +1230,13 @@ function LibraryView({ videos, total, filters, setFilters, setSelectedId, delete
           <span className="eyebrow">Biblioteca</span>
           <h2>{videos.length} de {total} itens</h2>
         </div>
-        <input
-          className="search-input"
-          value={filters.query}
-          onChange={event => setFilters({ ...filters, query: event.target.value })}
-          placeholder="Buscar por título, tag, nota..."
-        />
+        <span className="library-search-caption">Busca literal e inteligente disponíveis abaixo</span>
       </div>
+
+      <SmartSearch categories={CATEGORIES} platforms={PLATFORM_OPTIONS} onSearch={onSmartSearch} results={smartResults} loading={smartLoading} meta={smartMeta} onOpenItem={setSelectedId} onClear={onClearSmartSearch} />
+
+      <details className="literal-search-panel"><summary>Busca textual simples e filtros rápidos</summary>
+      <label className="literal-search-field"><span>Buscar literalmente</span><input className="search-input" value={filters.query} onChange={event => setFilters({ ...filters, query: event.target.value })} placeholder="Título, tag ou nota exata..." /></label>
 
       <div className="filter-strip">
         <FilterChip active={filters.category === 'all'} onClick={() => setFilters({ ...filters, category: 'all' })}>Todos</FilterChip>
@@ -948,6 +1262,15 @@ function LibraryView({ videos, total, filters, setFilters, setSelectedId, delete
         ))}
       </div>
 
+      <div className="filter-strip compact" aria-label="Filtros de cápsula">
+        <FilterChip active={filters.capsule === 'all'} onClick={() => setFilters({ ...filters, capsule: 'all' })}>Todas as análises</FilterChip>
+        <FilterChip active={filters.capsule === 'with'} onClick={() => setFilters({ ...filters, capsule: 'with' })}>Com cápsula</FilterChip>
+        <FilterChip active={filters.capsule === 'without'} onClick={() => setFilters({ ...filters, capsule: 'without' })}>Sem cápsula</FilterChip>
+        <FilterChip active={filters.capsule === 'complete'} onClick={() => setFilters({ ...filters, capsule: 'complete' })}>Análise completa</FilterChip>
+        <FilterChip active={filters.capsule === 'limited'} onClick={() => setFilters({ ...filters, capsule: 'limited' })}>Análise limitada</FilterChip>
+      </div>
+      </details>
+
       {videos.length ? (
         <div className="video-grid">
           {videos.map(video => <VideoCard key={video.id} video={video} onClick={() => setSelectedId(video.id)} onDelete={() => deleteVideo(video.id)} />)}
@@ -957,14 +1280,19 @@ function LibraryView({ videos, total, filters, setFilters, setSelectedId, delete
   );
 }
 
-function DashboardView({ videos, stats, setSelectedId, openMascot }) {
+function DashboardView({ videos, stats, setSelectedId, openMascot, knowledgeRefreshKey, onMetrics, onNotify }) {
   const topCategories = [...stats.byCategory.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5);
-  const recentWatched = videos.filter(video => video.watchedAt).sort((a, b) => new Date(b.watchedAt) - new Date(a.watchedAt)).slice(0, 5);
+  const recentWatched = videos.filter(video => video.consumedAt || video.watchedAt).sort((a, b) => new Date(b.consumedAt || b.watchedAt) - new Date(a.consumedAt || a.watchedAt)).slice(0, 5);
 
   return (
     <section className="view-stack">
+      <KnowledgeDashboard categories={CATEGORIES} refreshKey={knowledgeRefreshKey} onMetrics={onMetrics} onNotify={onNotify} />
+      <div className="legacy-dashboard-section">
+        <span className="eyebrow">Consumo do acervo</span>
+        <h2>Histórico complementar</h2>
+      </div>
       <div className="stats-grid">
-        <StatCard label="Conteúdos vistos" value={stats.watched} icon="eye" />
+        <StatCard label="Conteúdos consumidos" value={stats.watched} icon="eye" />
         <StatCard label="Tempo assistido" value={`${Math.round(stats.minutes)}min`} icon="clock" />
         <StatCard label="Categorias vistas" value={stats.watchedCategories} icon="palette" />
         <StatCard label="Conquistas" value={ACHIEVEMENTS.filter(item => item.test(stats)).length} icon="trophy" />
@@ -981,15 +1309,15 @@ function DashboardView({ videos, stats, setSelectedId, openMascot }) {
                   <strong>{count}</strong>
                 </div>
               );
-            }) : <EmptyState title="Sem histórico ainda" text="Marque itens como vistos para gerar seu relatório." />}
+            }) : <EmptyState title="Sem histórico ainda" text="Marque itens como consumidos para gerar seu relatório." />}
           </div>
         </Panel>
 
-        <Panel title="Vistos recentemente">
+        <Panel title="Consumidos recentemente">
           <div className="daily-list">
             {recentWatched.length ? recentWatched.map(video => (
               <CompactVideoRow key={video.id} video={video} onClick={() => setSelectedId(video.id)} />
-            )) : <EmptyState title="Nada visto ainda" text="Abra um item e marque como visto." />}
+            )) : <EmptyState title="Nada consumido ainda" text="Abra um item e marque como consumido." />}
           </div>
         </Panel>
       </div>
@@ -1154,6 +1482,19 @@ function StatCard({ icon, label, value, tone = '' }) {
   );
 }
 
+function CapsulePreviewRow({ video, onClick }) {
+  return (
+    <button className="capsule-preview-row" onClick={onClick}>
+      <span className={`capsule-preview-icon ${video.capsule?.status || ''}`}><IconSymbol name="brain" /></span>
+      <span>
+        <strong>{getDisplayTitle(video)}</strong>
+        <small>{video.capsule?.summary || 'Abra para ver a cápsula.'}</small>
+      </span>
+      <em>{video.capsule?.status === 'limited' ? 'Limitada' : 'Completa'}</em>
+    </button>
+  );
+}
+
 function CompactVideoRow({ video, onClick }) {
   const category = CATEGORY_BY_ID[video.category] || CATEGORY_BY_ID.misc;
   return (
@@ -1173,14 +1514,26 @@ function VideoCard({ video, onClick, onDelete, big = false }) {
   const category = CATEGORY_BY_ID[video.category] || CATEGORY_BY_ID.misc;
   const platform = getPlatformMeta(video.platform);
   return (
-    <article className={`video-card ${big ? 'big' : ''}`} onClick={onClick}>
+    <article
+      className={`video-card ${big ? 'big' : ''}`}
+      role="button"
+      tabIndex={0}
+      aria-label={`Abrir detalhes de ${getDisplayTitle(video)}`}
+      onClick={onClick}
+      onKeyDown={event => {
+        if (event.target !== event.currentTarget || !['Enter', ' '].includes(event.key)) return;
+        event.preventDefault();
+        onClick();
+      }}
+    >
       <div className="thumb" style={{ background: video.thumbnailUrl ? '#111' : category.accent }}>
         {video.thumbnailUrl ? <img src={video.thumbnailUrl} alt="" loading="lazy" /> : <IconSymbol name={category.icon} />}
         <div className="thumb-overlay" />
         <span className="cat-badge"><IconSymbol name={category.icon} /> {category.label}</span>
         <span className={`priority ${video.priority}`}>{video.priority}</span>
         <span className="platform-badge"><PlatformLogo platform={platform.id} compact /> {platform.label}</span>
-        {onDelete && <button className="delete-btn" onClick={event => { event.stopPropagation(); onDelete(); }}>×</button>}
+        {video.capsule && <span className={`capsule-card-badge ${video.capsule.status}`}><IconSymbol name="brain" /> Cápsula</span>}
+        {onDelete && <button type="button" className="delete-btn" aria-label={`Excluir ${getDisplayTitle(video)}`} onClick={event => { event.stopPropagation(); onDelete(); }}>×</button>}
       </div>
       <div className="video-body">
         <h3>{getDisplayTitle(video)}</h3>
@@ -1202,10 +1555,13 @@ function VideoCard({ video, onClick, onDelete, big = false }) {
   );
 }
 
-function VideoModal({ video, onClose, onUpdate, onDelete, onOpen, onMarkWatched }) {
+function VideoModal({ video, onClose, onUpdate, onDelete, onOpen, onMarkConsumed, reflectionExpanded, paths, onKnowledgeChanged, onCapsuleChange, onNotify, onOpenRelated }) {
   const [draft, setDraft] = useState(video);
   const [tagText, setTagText] = useState((video.tags || []).join(', '));
   const [watchedMinutes, setWatchedMinutes] = useState(Math.round((video.watchedSeconds || 0) / 60) || 5);
+  const dialogRef = useRef(null);
+  const closeButtonRef = useRef(null);
+  const restoreFocusRef = useRef(null);
   const category = CATEGORY_BY_ID[draft.category] || CATEGORY_BY_ID.misc;
   const platform = getPlatformMeta(draft.platform);
 
@@ -1213,7 +1569,36 @@ function VideoModal({ video, onClose, onUpdate, onDelete, onOpen, onMarkWatched 
     setDraft(video);
     setTagText((video.tags || []).join(', '));
     setWatchedMinutes(Math.round((video.watchedSeconds || 0) / 60) || 5);
-  }, [video]);
+  }, [video.id]);
+
+  useEffect(() => {
+    restoreFocusRef.current = document.activeElement;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    closeButtonRef.current?.focus();
+
+    function handleKeyDown(event) {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        onClose();
+        return;
+      }
+      if (event.key !== 'Tab') return;
+      const focusable = dialogRef.current?.querySelectorAll('button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])');
+      if (!focusable?.length) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+    }
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+      document.body.style.overflow = previousOverflow;
+      restoreFocusRef.current?.focus?.();
+    };
+  }, []);
 
   function patch(value) {
     setDraft(current => ({ ...current, ...value }));
@@ -1241,8 +1626,8 @@ function VideoModal({ video, onClose, onUpdate, onDelete, onOpen, onMarkWatched 
 
   return (
     <div className="modal-backdrop" onMouseDown={event => event.target === event.currentTarget && onClose()}>
-      <div className="modal-card">
-        <button className="modal-close" onClick={onClose}>×</button>
+      <div className="modal-card" ref={dialogRef} role="dialog" aria-modal="true" aria-label="Detalhes do item salvo">
+        <button className="modal-close" ref={closeButtonRef} onClick={onClose} aria-label="Fechar detalhes">×</button>
         <div className="modal-hero" style={{ background: draft.thumbnailUrl ? '#111' : category.accent }}>
           {draft.thumbnailUrl ? <img src={draft.thumbnailUrl} alt="" /> : <IconSymbol name={category.icon} size="large" />}
         </div>
@@ -1287,8 +1672,9 @@ function VideoModal({ video, onClose, onUpdate, onDelete, onOpen, onMarkWatched 
             <select aria-label="Motivo para guardar" title="Motivo" value={draft.reason} onChange={event => patch({ reason: event.target.value })}>
               {REASONS.map(reason => <option key={reason.id} value={reason.id}>{reason.label}</option>)}
             </select>
-            <select aria-label="Status do item" title="Status" value={draft.status} onChange={event => patch({ status: event.target.value })}>
-              {Object.entries(STATUS).map(([id, status]) => <option key={id} value={id}>{status.label}</option>)}
+            <select aria-label="Status de organização do item" title="Status de organização" value={draft.status} onChange={event => patch({ status: event.target.value })}>
+              {draft.status === 'aplicado' && <option value="aplicado" disabled>{draft.applicationStatus === 'completed' ? 'Aplicado com evidência' : 'Aplicado (histórico)'}</option>}
+              {Object.entries(STATUS).filter(([id]) => id !== 'aplicado').map(([id, status]) => <option key={id} value={id}>{status.label}</option>)}
             </select>
             <select aria-label="Prioridade do item" title="Prioridade" value={draft.priority || 'baixa'} onChange={event => patch({ priority: event.target.value })}>
               <option value="baixa">Prioridade baixa</option>
@@ -1323,16 +1709,19 @@ function VideoModal({ video, onClose, onUpdate, onDelete, onOpen, onMarkWatched 
             <input
               value={draft.bestFor || ''}
               onChange={event => patch({ bestFor: event.target.value })}
+              aria-label="Ideal para"
               placeholder="Ideal para..."
             />
             <input
               value={draft.watchWhen || ''}
               onChange={event => patch({ watchWhen: event.target.value })}
+              aria-label="Assistir quando"
               placeholder="Assistir quando..."
             />
             <input
               value={draft.sourceName || ''}
               onChange={event => patch({ sourceName: event.target.value })}
+              aria-label="Fonte do conteúdo"
               placeholder="Fonte do anexo (canal, perfil, curso...)"
             />
             <input
@@ -1340,7 +1729,8 @@ function VideoModal({ video, onClose, onUpdate, onDelete, onOpen, onMarkWatched 
               min="0"
               value={watchedMinutes}
               onChange={event => setWatchedMinutes(event.target.value)}
-              placeholder="Tempo visto em minutos"
+              aria-label="Tempo consumido em minutos"
+              placeholder="Tempo consumido em minutos"
             />
           </div>
 
@@ -1352,9 +1742,28 @@ function VideoModal({ video, onClose, onUpdate, onDelete, onOpen, onMarkWatched 
             {draft.watchWhen && <small>{draft.watchWhen}</small>}
           </div>
 
+          <CapsulePanel
+            videoId={video.id}
+            initialCapsule={video.capsule}
+            onCapsuleChange={onCapsuleChange}
+            onNotify={onNotify}
+          />
+
+          <ReflectionForm
+            video={video}
+            expanded={reflectionExpanded}
+            onSkip={() => onNotify?.('Você pode registrar o aprendizado depois')}
+            onChanged={onKnowledgeChanged}
+            onNotify={onNotify}
+          />
+
+          <KnowledgeCardPanel videoId={video.id} onChanged={onKnowledgeChanged} onNotify={onNotify} />
+          <ApplicationList video={video} paths={paths} onChanged={onKnowledgeChanged} onNotify={onNotify} />
+          <RelatedItems videoId={video.id} onOpenItem={onOpenRelated} />
+
           <div className="modal-actions">
             <button className="primary-btn" onClick={onOpen}>Abrir Link</button>
-            <button className="secondary-btn" onClick={() => onMarkWatched(video.id, watchedMinutes)}>Marcar visto</button>
+            <button className="secondary-btn" onClick={() => onMarkConsumed(video.id, watchedMinutes)}>{video.consumedAt || video.watchedAt ? 'Registrar novo consumo' : 'Marcar consumido'}</button>
             <button className="secondary-btn" onClick={saveChanges}>Salvar Alterações</button>
             <button className="secondary-btn danger" onClick={onDelete}>Excluir</button>
           </div>
@@ -1417,6 +1826,8 @@ function MobileDock({ view, setView }) {
     ['add', 'Salvar', 'plus'],
     ['review', 'Rever', 'repeat'],
     ['library', 'Acervo', 'book'],
+    ['paths', 'Trilhas', 'route'],
+    ['map', 'Mapa', 'map'],
     ['dashboard', 'Dados', 'chart'],
     ['achievements', 'Troféus', 'trophy'],
     ['settings', 'Config', 'settings']
@@ -1435,7 +1846,7 @@ function MobileDock({ view, setView }) {
 }
 
 function buildWatchStats(videos) {
-  const watchedVideos = videos.filter(video => video.watchedAt || video.status === 'aplicado');
+  const watchedVideos = videos.filter(video => video.consumedAt || video.watchedAt);
   const byCategory = new Map();
   watchedVideos.forEach(video => {
     const key = video.category || 'misc';
@@ -1473,17 +1884,8 @@ async function chatWithMascot({ message, messages, videos, stats }) {
         minutes: Math.round(stats.minutes),
         inbox: stats.inbox,
         important: stats.important,
-        watchedCategories: stats.watchedCategories
-      },
-      videos: videos.slice(0, 30).map(video => ({
-        title: getDisplayTitle(video),
-        category: CATEGORY_BY_ID[video.category]?.label || 'Geral',
-        status: STATUS[video.status]?.label || video.status,
-        mood: video.mood,
-        durationBucket: video.durationBucket,
-        reason: getReason(video.reason),
-        tags: video.tags || []
-      }))
+        active: stats.active
+      }
     })
   });
   if (!response.ok) throw new Error('Falha no chat');
@@ -1502,26 +1904,34 @@ function buildMascotAnswer(text, videos, stats) {
   if (normalized.includes('relat') || normalized.includes('consum')) {
     const top = [...stats.byCategory.entries()].sort((a, b) => b[1] - a[1])[0];
     const label = top ? (CATEGORY_BY_ID[top[0]]?.label || 'Geral') : 'nenhuma categoria ainda';
-    return `Seu relatório: ${stats.watched} conteúdos vistos, ${Math.round(stats.minutes)} minutos registrados e maior consumo em ${label}. Próximo passo: escolha um item curto e marque como visto hoje.`;
+    return `Seu relatório: ${stats.watched} conteúdos consumidos, ${Math.round(stats.minutes)} minutos registrados e maior consumo em ${label}. Próximo passo: escolha um item curto e marque como consumido hoje.`;
   }
   if (normalized.includes('procrast') || normalized.includes('sem foco') || normalized.includes('cans')) {
     return next ? `Modo anti-procrastinação: abre "${getDisplayTitle(next)}" e assiste só 5 minutos. Se não valer, arquiva sem culpa.` : 'Sua fila ainda está vazia. Salve um conteúdo curto e volte aqui para eu te puxar para a revisão.';
   }
-  if (next) return `Minha recomendação agora é "${getDisplayTitle(next)}". Ele combina com sua fila e pode destravar a próxima revisão. Depois marque como visto para alimentar seu dashboard.`;
+  if (next) return `Minha recomendação agora é "${getDisplayTitle(next)}". Ele combina com sua fila e pode destravar a próxima revisão. Depois marque como consumido para alimentar seu dashboard.`;
   return 'Me conte seu mood, tempo livre ou tema desejado. Eu vou usar seu acervo para sugerir algo prático.';
 }
 
 function progressHint(achievement, stats) {
   if (achievement.id.includes('save')) return `${stats.total} salvos`;
-  if (achievement.id.includes('watch')) return `${stats.watched} vistos`;
+  if (achievement.id.includes('watch')) return `${stats.watched} consumidos`;
   if (achievement.id.includes('hour')) return `${Math.round(stats.minutes)}min registrados`;
   if (achievement.id.includes('categories')) return `${stats.watchedCategories} categorias`;
   if (achievement.id === 'inbox-zero') return `${stats.inbox} no inbox`;
   if (achievement.id.includes('archive')) return `${stats.archived} arquivados`;
   if (achievement.id.includes('active')) return `${stats.active} ativos`;
-  if (achievement.id.includes('short')) return `${stats.shortWatched} curtos vistos`;
-  if (achievement.id.includes('focus')) return `${stats.focusWatched} focados vistos`;
-  if (achievement.id.includes('creative')) return `${stats.creativeWatched} criativos vistos`;
+  if (achievement.id.includes('short')) return `${stats.shortWatched} curtos consumidos`;
+  if (achievement.id.includes('focus')) return `${stats.focusWatched} focados consumidos`;
+  if (achievement.id.includes('creative')) return `${stats.creativeWatched} criativos consumidos`;
+  if (achievement.id === 'first-reflection') return `${stats.reflectionCount || 0} reflexões`;
+  if (achievement.id === 'first-active-review') return `${stats.reviewAttemptCount || 0} revisões ativas`;
+  if (achievement.id === 'remembered-5') return `${stats.rememberedCount || 0} lembrados`;
+  if (achievement.id === 'first-real-application') return `${stats.applicationsCompleted || 0} aplicações`;
+  if (achievement.id === 'review-week') return `${stats.reviewStreakDays || 0} dias seguidos`;
+  if (achievement.id === 'applied-3') return `${stats.contentsApplied || 0} aplicados`;
+  if (achievement.id === 'recovered-card') return `${stats.recoveredCount || 0} recuperados`;
+  if (achievement.id === 'path-with-application') return `${stats.completedPathsWithApplications || 0} trilhas`;
   return 'Em progresso';
 }
 

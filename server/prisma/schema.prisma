@@ -3,8 +3,8 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
   directUrl = env("DATABASE_DIRECT_URL")
 }
 
@@ -23,52 +23,158 @@ enum VideoPriority {
   alta
 }
 
+enum CapsuleStatus {
+  idle
+  extracting
+  generating
+  completed
+  limited
+  failed
+}
+
+enum CapsuleCoverage {
+  full_content
+  user_content
+  metadata_only
+  partial_content
+}
+
+enum EmbeddingStatus {
+  pending
+  indexed
+  outdated
+  failed
+}
+
+enum LearningPathStatus {
+  active
+  completed
+  archived
+}
+
+enum LearningPathItemStatus {
+  pending
+  in_progress
+  completed
+  skipped
+}
+
+enum LearningPathGapStatus {
+  open
+  resolved
+  dismissed
+}
+
+enum LearningPathGapImportance {
+  low
+  medium
+  high
+}
+
+enum VideoApplicationStatus {
+  none
+  planned
+  in_progress
+  completed
+  legacy_applied
+}
+
+enum KnowledgeCardType {
+  question_answer
+  concept_explanation
+  situation_application
+  explain_own_words
+  decision
+  application
+}
+
+enum KnowledgeCardSource {
+  manual
+  capsule
+  reflection
+  ai
+}
+
+enum KnowledgeCardStatus {
+  active
+  suspended
+}
+
+enum ReviewRating {
+  again
+  hard
+  good
+  easy
+}
+
+enum ApplicationCommitmentStatus {
+  planned
+  in_progress
+  completed
+  dismissed
+}
+
 model Video {
-  id                String        @id @default(cuid())
-  userId            String?
-  url               String
-  canonicalUrl      String?
-  platform          String        @default("web")
-  platformLabel     String?
-  videoId           String?
-  tiktokId          String?
-  titleOriginal     String?
-  titleAi           String
-  titleCustom       String?
-  authorName        String?
-  authorUrl         String?
-  thumbnailUrl      String?
-  thumbnailFallback String?
-  providerName      String?
-  description       String?
-  category          String
-  reason            String
-  tags              String[]
-  priority          VideoPriority @default(baixa)
-  status            VideoStatus   @default(novo)
-  note              String?
-  summary           String?
-  mood              String?
-  effort            String?
-  durationBucket    String?
-  bestFor           String?
-  watchWhen         String?
-  sourceName        String?
-  watchedAt         DateTime?
-  watchedSeconds    Int           @default(0)
-  watchCount        Int           @default(0)
-  sourceText        String?
-  origin            String        @default("manual")
-  reviewCount       Int           @default(0)
-  schemaVersion     Int           @default(3)
-  aiEngine          String?
-  aiConfidence      Float?
-  aiRationale       String?
-  reviewedAt        DateTime?
-  createdAt         DateTime      @default(now())
-  updatedAt         DateTime      @updatedAt
-  user              User?         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  revisions         VideoRevision[]
+  id                     String                 @id @default(cuid())
+  userId                 String?
+  url                    String
+  canonicalUrl           String?
+  platform               String                 @default("web")
+  platformLabel          String?
+  videoId                String?
+  tiktokId               String?
+  titleOriginal          String?
+  titleAi                String
+  titleCustom            String?
+  authorName             String?
+  authorUrl              String?
+  thumbnailUrl           String?
+  thumbnailFallback      String?
+  providerName           String?
+  description            String?
+  category               String
+  reason                 String
+  savedFor               String?
+  tags                   String[]
+  priority               VideoPriority          @default(baixa)
+  status                 VideoStatus            @default(novo)
+  note                   String?
+  summary                String?
+  mood                   String?
+  effort                 String?
+  durationBucket         String?
+  bestFor                String?
+  watchWhen              String?
+  sourceName             String?
+  watchedAt              DateTime?
+  consumedAt             DateTime?
+  appliedAt              DateTime?
+  applicationStatus      VideoApplicationStatus @default(none)
+  applicationNote        String?
+  applicationEvidenceUrl String?
+  watchedSeconds         Int                    @default(0)
+  watchCount             Int                    @default(0)
+  sourceText             String?
+  origin                 String                 @default("manual")
+  reviewCount            Int                    @default(0)
+  schemaVersion          Int                    @default(4)
+  aiEngine               String?
+  aiConfidence           Float?
+  aiRationale            String?
+  reviewedAt             DateTime?
+  createdAt              DateTime               @default(now())
+  updatedAt              DateTime               @updatedAt
+  user                   User?                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  revisions              VideoRevision[]
+  capsule                ContentCapsule?
+  embedding              VideoEmbedding?
+  learningPathItems      LearningPathItem[]
+  reflection             ContentReflection?
+  knowledgeCards         KnowledgeCard[]
+  applicationCommitments ApplicationCommitment[]
+  snapshot               ContentSnapshot?
+  assets                 SavedAsset[]
+  sharedCollectionItems  SharedCollectionItem[]
 
   @@unique([userId, url])
   @@index([userId])
@@ -76,38 +182,61 @@ model Video {
   @@index([platform])
   @@index([status])
   @@index([priority])
+  @@index([savedFor])
   @@index([createdAt])
 }
 
 model User {
-  id                String             @id @default(cuid())
-  name              String?
-  email             String             @unique
-  passwordHash      String
-  createdAt         DateTime           @default(now())
-  updatedAt         DateTime           @updatedAt
-  videos            Video[]
-  settings          UserSettings?
-  achievements      UserAchievement[]
-  pushSubscriptions PushSubscription[]
+  id                     String                  @id @default(cuid())
+  name                   String?
+  email                  String                  @unique
+  passwordHash           String
+  createdAt              DateTime                @default(now())
+  updatedAt              DateTime                @updatedAt
+  videos                 Video[]
+  settings               UserSettings?
+  achievements           UserAchievement[]
+  pushSubscriptions      PushSubscription[]
+  capsules               ContentCapsule[]
+  embeddings             VideoEmbedding[]
+  learningPaths          LearningPath[]
+  reflections            ContentReflection[]
+  knowledgeCards         KnowledgeCard[]
+  reviewAttempts         ReviewAttempt[]
+  applicationCommitments ApplicationCommitment[]
+  snapshots              ContentSnapshot[]
+  savedAssets            SavedAsset[]
+  sharedCollections      SharedCollection[]
+  quickThoughts          QuickThought[]
+  weeklyDigests          WeeklyDigest[]
+  integrationAccounts    IntegrationAccount[]
+  integrationLinks       IntegrationLink[]
+  captureTokens          CaptureToken[]
 }
 
 model UserSettings {
-  id                           String    @id @default(cuid())
-  userId                       String    @unique
-  dailyReviewTarget            Int       @default(3)
-  autoOpenReviewAfterShare     Boolean   @default(false)
-  storageMode                  String    @default("api")
-  backendReady                 Boolean   @default(true)
-  smartNotificationsEnabled    Boolean   @default(false)
-  clipboardSuggestionsEnabled  Boolean   @default(true)
-  guardinhoActionsEnabled      Boolean   @default(true)
-  recommendationMode           String    @default("smart")
-  notificationFrequency        String    @default("balanced")
-  lastSmartPushAt              DateTime?
-  createdAt                    DateTime  @default(now())
-  updatedAt                    DateTime  @updatedAt
-  user                         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                          String   @id @default(cuid())
+  userId                      String   @unique
+  dailyReviewTarget           Int      @default(3)
+  autoOpenReviewAfterShare    Boolean  @default(false)
+  storageMode                 String   @default("api")
+  backendReady                Boolean  @default(true)
+  smartNotificationsEnabled   Boolean  @default(false)
+  clipboardSuggestionsEnabled Boolean  @default(true)
+  guardinhoActionsEnabled     Boolean  @default(true)
+  recommendationMode          String   @default("smart")
+  notificationFrequency       String   @default("balanced")
+  weeklyDigestEnabled         Boolean  @default(true)
+  autoSnapshotEnabled         Boolean  @default(true)
+  contextAssistEnabled        Boolean  @default(true)
+  screenshotOcrEnabled        Boolean  @default(true)
+  extensionCaptureEnabled     Boolean  @default(true)
+  timezone                    String   @default("America/Sao_Paulo")
+  lastSmartPushAt             DateTime?
+  lastWeeklyDigestAt          DateTime?
+  createdAt                   DateTime @default(now())
+  updatedAt                   DateTime @updatedAt
+  user                        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model PushSubscription {
@@ -124,6 +253,20 @@ model PushSubscription {
 
   @@index([userId])
   @@index([lastSeenAt])
+}
+
+model CaptureToken {
+  id         String    @id @default(cuid())
+  userId     String
+  name       String    @default("Extensao")
+  tokenHash  String    @unique
+  lastUsedAt DateTime?
+  revokedAt  DateTime?
+  createdAt  DateTime  @default(now())
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([userId, revokedAt])
 }
 
 model VideoRevision {
@@ -149,4 +292,342 @@ model UserAchievement {
   @@unique([userId, achievementId])
   @@index([userId])
   @@index([achievementId])
+}
+
+model ContentCapsule {
+  id                    String          @id @default(cuid())
+  userId                String
+  videoId               String          @unique
+  status                CapsuleStatus   @default(idle)
+  coverage              CapsuleCoverage @default(metadata_only)
+  language              String          @default("pt-BR")
+  summary               String?
+  keyPoints             Json            @default("[]")
+  concepts              Json            @default("[]")
+  practicalApplications Json            @default("[]")
+  actionItems           Json            @default("[]")
+  reflectionQuestions   Json            @default("[]")
+  evidenceSnippets      Json            @default("[]")
+  sourceText            String?
+  sourceTextHash        String?
+  aiModel               String?
+  aiConfidence          Float?
+  aiRationale           String?
+  errorCode             String?
+  errorMessage          String?
+  generatedAt           DateTime?
+  createdAt             DateTime        @default(now())
+  updatedAt             DateTime        @updatedAt
+  user                  User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  video                 Video           @relation(fields: [videoId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([userId, status])
+  @@index([userId, coverage])
+  @@index([generatedAt])
+  @@index([userId, generatedAt])
+}
+
+model VideoEmbedding {
+  id           String          @id @default(cuid())
+  userId       String
+  videoId      String          @unique
+  provider     String          @default("local")
+  model        String          @default("semantic-hash-v1")
+  dimensions   Int             @default(192)
+  vector       Json
+  contentHash  String
+  status       EmbeddingStatus @default(pending)
+  errorCode    String?
+  errorMessage String?
+  indexedAt    DateTime?
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+  user         User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  video        Video           @relation(fields: [videoId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([userId, status])
+  @@index([contentHash])
+}
+
+model LearningPath {
+  id                     String             @id @default(cuid())
+  userId                 String
+  title                  String
+  objective              String
+  description            String?
+  currentLevel           String             @default("iniciante")
+  weeklyMinutes          Int                @default(60)
+  deadline               DateTime?
+  status                 LearningPathStatus @default(active)
+  progress               Float              @default(0)
+  aiGenerated            Boolean            @default(false)
+  autoOrganize           Boolean            @default(true)
+  categories             String[]           @default([])
+  resultType             String?
+  createdAt              DateTime           @default(now())
+  updatedAt              DateTime           @updatedAt
+  user                   User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items                  LearningPathItem[]
+  gaps                   LearningPathGap[]
+  applicationCommitments ApplicationCommitment[]
+
+  @@index([userId])
+  @@index([userId, status])
+  @@index([deadline])
+}
+
+model LearningPathItem {
+  id               String                 @id @default(cuid())
+  learningPathId   String
+  videoId          String
+  position         Int
+  section          String                 @default("Etapa 1")
+  reason           String?
+  estimatedMinutes Int                    @default(10)
+  status           LearningPathItemStatus @default(pending)
+  note             String?
+  manualAdded      Boolean                @default(false)
+  completedAt      DateTime?
+  createdAt        DateTime               @default(now())
+  updatedAt        DateTime               @updatedAt
+  learningPath     LearningPath           @relation(fields: [learningPathId], references: [id], onDelete: Cascade)
+  video            Video                  @relation(fields: [videoId], references: [id], onDelete: Cascade)
+
+  @@unique([learningPathId, videoId])
+  @@index([learningPathId, position])
+  @@index([videoId])
+}
+
+model LearningPathGap {
+  id             String                    @id @default(cuid())
+  learningPathId String
+  title          String
+  description    String
+  importance     LearningPathGapImportance @default(medium)
+  status         LearningPathGapStatus     @default(open)
+  createdAt      DateTime                  @default(now())
+  updatedAt      DateTime                  @updatedAt
+  learningPath   LearningPath              @relation(fields: [learningPathId], references: [id], onDelete: Cascade)
+
+  @@index([learningPathId])
+  @@index([learningPathId, status])
+}
+
+model ContentReflection {
+  id              String   @id @default(cuid())
+  userId          String
+  videoId         String   @unique
+  mainLearning    String?
+  rememberLater   String?
+  applicationIdea String?
+  confidence      Int?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  video           Video    @relation(fields: [videoId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([userId, updatedAt])
+  @@index([videoId])
+}
+
+model KnowledgeCard {
+  id             String              @id @default(cuid())
+  userId         String
+  videoId        String
+  question       String
+  answer         String
+  hint           String?
+  cardType       KnowledgeCardType   @default(question_answer)
+  sourceType     KnowledgeCardSource @default(manual)
+  status         KnowledgeCardStatus @default(active)
+  easeFactor     Float               @default(2.5)
+  intervalDays   Int                 @default(0)
+  repetitions    Int                 @default(0)
+  nextReviewAt   DateTime            @default(now())
+  lastReviewedAt DateTime?
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+  user           User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  video          Video               @relation(fields: [videoId], references: [id], onDelete: Cascade)
+  attempts       ReviewAttempt[]
+
+  @@index([userId])
+  @@index([userId, status, nextReviewAt])
+  @@index([videoId])
+  @@index([nextReviewAt])
+}
+
+model ReviewAttempt {
+  id               String        @id @default(cuid())
+  userId           String
+  knowledgeCardId  String
+  answerText       String?
+  rating           ReviewRating
+  previousInterval Int
+  nextInterval     Int
+  easeFactorAfter  Float
+  reviewedAt       DateTime      @default(now())
+  user             User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  knowledgeCard    KnowledgeCard @relation(fields: [knowledgeCardId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([userId, reviewedAt])
+  @@index([knowledgeCardId])
+  @@index([rating])
+}
+
+model ApplicationCommitment {
+  id             String                      @id @default(cuid())
+  userId         String
+  videoId        String
+  learningPathId String?
+  title          String
+  description    String?
+  dueAt          DateTime?
+  status         ApplicationCommitmentStatus @default(planned)
+  evidenceUrl    String?
+  evidenceText   String?
+  reflection     String?
+  reviewAgain    Boolean                     @default(false)
+  completedAt    DateTime?
+  createdAt      DateTime                    @default(now())
+  updatedAt      DateTime                    @updatedAt
+  user           User                        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  video          Video                       @relation(fields: [videoId], references: [id], onDelete: Cascade)
+  learningPath   LearningPath?               @relation(fields: [learningPathId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([userId, status])
+  @@index([videoId])
+  @@index([learningPathId])
+  @@index([dueAt])
+  @@index([userId, dueAt])
+}
+
+model ContentSnapshot {
+  id           String   @id @default(cuid())
+  userId       String
+  videoId      String   @unique
+  sourceStatus String   @default("metadata_only")
+  contentType  String?
+  finalUrl     String?
+  textContent  String?
+  excerpt      String?
+  contentHash  String?
+  capturedAt   DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  video        Video    @relation(fields: [videoId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([capturedAt])
+}
+
+model SavedAsset {
+  id        String   @id @default(cuid())
+  userId    String
+  videoId   String?
+  kind      String
+  mimeType  String?
+  data      String?
+  ocrText   String?
+  width     Int?
+  height    Int?
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  video     Video?   @relation(fields: [videoId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([videoId])
+  @@index([kind])
+}
+
+model SharedCollection {
+  id          String                 @id @default(cuid())
+  userId      String
+  slug        String                 @unique
+  title       String
+  description String?
+  isPublic    Boolean                @default(true)
+  createdAt   DateTime               @default(now())
+  updatedAt   DateTime               @updatedAt
+  user        User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items       SharedCollectionItem[]
+
+  @@index([userId])
+  @@index([userId, updatedAt])
+}
+
+model SharedCollectionItem {
+  id           String           @id @default(cuid())
+  collectionId String
+  videoId      String
+  position     Int              @default(0)
+  note         String?
+  createdAt    DateTime         @default(now())
+  collection   SharedCollection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  video        Video            @relation(fields: [videoId], references: [id], onDelete: Cascade)
+
+  @@unique([collectionId, videoId])
+  @@index([collectionId, position])
+  @@index([videoId])
+}
+
+model QuickThought {
+  id         String   @id @default(cuid())
+  userId     String
+  text       String
+  contextUrl String?
+  tags       String[] @default([])
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+}
+
+model WeeklyDigest {
+  id         String   @id @default(cuid())
+  userId     String
+  weekKey    String
+  summary    String
+  highlights Json     @default("[]")
+  cleanup    Json     @default("[]")
+  resurfaced Json     @default("[]")
+  createdAt  DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, weekKey])
+  @@index([userId, createdAt])
+}
+
+model IntegrationAccount {
+  id             String   @id @default(cuid())
+  userId         String
+  provider       String
+  externalUserId String
+  displayName    String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, externalUserId])
+  @@index([userId, provider])
+}
+
+model IntegrationLink {
+  id        String    @id @default(cuid())
+  userId    String
+  provider  String
+  code      String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, provider])
+  @@index([expiresAt])
 }
