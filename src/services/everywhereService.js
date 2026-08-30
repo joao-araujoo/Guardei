@@ -40,10 +40,7 @@ export const everywhereService = {
   removeCollection: id => request(`/api/collections/${encodeURIComponent(id)}`, { method: 'DELETE' }),
   captureTokens: () => request('/api/capture-tokens'),
   createCaptureToken: name => request('/api/capture-tokens', { method: 'POST', body: { name } }),
-  revokeCaptureToken: id => request(`/api/capture-tokens/${encodeURIComponent(id)}`, { method: 'DELETE' }),
-  integrations: () => request('/api/integrations'),
-  whatsappCode: () => request('/api/integrations/whatsapp/connect-code', { method: 'POST', body: {} }),
-  removeIntegration: id => request(`/api/integrations/${encodeURIComponent(id)}`, { method: 'DELETE' })
+  revokeCaptureToken: id => request(`/api/capture-tokens/${encodeURIComponent(id)}`, { method: 'DELETE' })
 };
 
 export function fileToDataUrl(file) {
