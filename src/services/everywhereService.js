@@ -35,6 +35,7 @@ export const everywhereService = {
   importBookmarks: payload => request('/api/import/bookmarks', { method: 'POST', body: payload }),
   collections: () => request('/api/collections'),
   createCollection: payload => request('/api/collections', { method: 'POST', body: payload }),
+  importCollection: slug => request(`/api/collections/public/${encodeURIComponent(slug)}/import`, { method: 'POST', body: {} }),
   addCollectionItems: (id, videoIds) => request(`/api/collections/${encodeURIComponent(id)}/items`, { method: 'POST', body: { videoIds } }),
   removeCollection: id => request(`/api/collections/${encodeURIComponent(id)}`, { method: 'DELETE' }),
   captureTokens: () => request('/api/capture-tokens'),
