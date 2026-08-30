@@ -6,7 +6,7 @@
 
 O Guardei existe para reduzir o caminho entre **encontrar algo → guardar → reencontrar → entender → usar**.
 
-A experiência principal é deliberadamente simples: a pessoa pode continuar no navegador, celular ou mensageiro que já usa. O Guardei recebe o conteúdo, organiza por baixo e traz de volta quando existe motivo para isso.
+A experiência principal é deliberadamente simples: a pessoa pode continuar no navegador ou celular que já usa. O Guardei recebe o conteúdo, organiza por baixo e traz de volta quando existe motivo para isso.
 
 ## Princípios do produto
 
@@ -27,7 +27,7 @@ A experiência principal é deliberadamente simples: a pessoa pode continuar no 
 - pensamentos rápidos que também entram na busca semântica;
 - importação de favoritos HTML/CSV com deduplicação;
 - snapshot textual seguro de páginas para não depender somente de uma URL viva;
-- token de captura restrito para integrações e extensão.
+- token de captura restrito para a extensão do navegador.
 
 ### Extensão do navegador
 
@@ -78,18 +78,6 @@ O token `gcp_...` usado pela extensão só é aceito nas rotas de captura e pode
 - visitantes podem abrir fontes sem conta;
 - usuário autenticado pode **Guardar tudo no meu Guardei** com deduplicação.
 
-### Entrada pelo WhatsApp
-
-O backend possui integração para WhatsApp Cloud API:
-
-- usuário gera um código temporário dentro do Guardei;
-- envia `GUARDEI <código>` para vincular o número;
-- depois pode encaminhar links ou pensamentos;
-- links usam o mesmo pipeline universal de captura;
-- textos sem URL entram como pensamento rápido.
-
-A integração só é ativada quando as credenciais oficiais da Meta são configuradas no ambiente.
-
 ## Stack
 
 - React + Vite;
@@ -132,7 +120,7 @@ Para instalações que já possuem as migrations do Ciclo de Conhecimento, apliq
     npx prisma migrate deploy
     npx prisma generate
 
-O schema preserva os dados anteriores e adiciona captura universal, snapshots, assets, coleções, thoughts, digest, integrações e tokens de captura.
+O schema preserva os dados anteriores e adiciona captura universal, snapshots, assets, coleções, pensamentos, digest e tokens de captura.
 
 ## Web Push
 
@@ -141,17 +129,6 @@ Gere as chaves uma vez:
     npm --prefix server run push:keys
 
 Configure `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` e `VAPID_SUBJECT`. Não troque o par VAPID depois que dispositivos estiverem inscritos.
-
-## WhatsApp Cloud API
-
-Quando essa entrada for usada em produção, configure:
-
-- `WHATSAPP_VERIFY_TOKEN`;
-- `WHATSAPP_APP_SECRET`;
-- `WHATSAPP_ACCESS_TOKEN`;
-- `WHATSAPP_PHONE_NUMBER_ID`.
-
-O webhook deve apontar para `/api/integrations/whatsapp`.
 
 ## Validação
 
