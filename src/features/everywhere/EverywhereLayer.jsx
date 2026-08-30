@@ -24,7 +24,6 @@ export default function EverywhereLayer() {
   const [spaces, setSpaces] = useState([]);
   const [videos, setVideos] = useState([]);
   const [collections, setCollections] = useState([]);
-  const [integrations, setIntegrations] = useState([]);
   const [tokens, setTokens] = useState([]);
   const [settings, setSettings] = useState({});
   const [search, setSearch] = useState('');
@@ -32,7 +31,6 @@ export default function EverywhereLayer() {
   const [collectionTitle, setCollectionTitle] = useState('');
   const [selectedIds, setSelectedIds] = useState([]);
   const [lastToken, setLastToken] = useState('');
-  const [whatsappCode, setWhatsappCode] = useState(null);
   const [intentTarget, setIntentTarget] = useState(null);
   const dirtyRef = useRef(false);
   const noticeTimer = useRef(null);
@@ -46,7 +44,10 @@ export default function EverywhereLayer() {
     }).catch(error => {
       if (active && error?.status !== 401) console.warn('Camada universal indisponível:', error);
     });
-    return () => { active = false; if (noticeTimer.current) clearTimeout(noticeTimer.current); };
+    return () => {
+      active = false;
+      if (noticeTimer.current) clearTimeout(noticeTimer.current);
+    };
   }, []);
 
   useEffect(() => {
@@ -73,11 +74,10 @@ export default function EverywhereLayer() {
       everywhereService.spaces(),
       everywhereService.videos(),
       everywhereService.collections(),
-      everywhereService.integrations(),
       everywhereService.captureTokens(),
       everywhereService.settings()
     ]);
-    const [digestResult, spacesResult, videosResult, collectionsResult, integrationsResult, tokensResult, settingsResult] = results;
+    const [digestResult, spacesResult, videosResult, collectionsResult, tokensResult, settingsResult] = results;
     if (digestResult.status === 'fulfilled') setDigest(digestResult.value);
     if (spacesResult.status === 'fulfilled') setSpaces(spacesResult.value?.spaces || []);
     if (videosResult.status === 'fulfilled') {
@@ -87,7 +87,6 @@ export default function EverywhereLayer() {
       if (recentWithoutIntent) setIntentTarget(recentWithoutIntent);
     }
     if (collectionsResult.status === 'fulfilled') setCollections(collectionsResult.value || []);
-    if (integrationsResult.status === 'fulfilled') setIntegrations(integrationsResult.value || []);
     if (tokensResult.status === 'fulfilled') setTokens(tokensResult.value || []);
     if (settingsResult.status === 'fulfilled') setSettings(settingsResult.value || {});
   }
@@ -114,16 +113,24 @@ export default function EverywhereLayer() {
       const result = await everywhereService.captureUrl({ url: url.trim(), note, savedFor: intent, origin: 'universal-capture' });
       dirtyRef.current = true;
       setIntentTarget(result.video || null);
-      setUrl(''); setNote('');
+      setUrl('');
+      setNote('');
       flash(result.duplicated ? 'Isso já estava no seu Guardei.' : 'Guardado. O resto eu organizo.');
       await loadHub();
-    } catch (error) { flash(error.message); }
-    finally { setBusy(false); }
+    } catch (error) {
+      flash(error.message);
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function pasteClipboard() {
-    try { const text = await navigator.clipboard.readText(); setUrl(text); }
-    catch { flash('O navegador não liberou o clipboard.'); }
+    try {
+      const text = await navigator.clipboard.readText();
+      setUrl(text);
+    } catch {
+      flash('O navegador não liberou o clipboard.');
+    }
   }
 
   async function captureScreenshot(event) {
@@ -137,8 +144,11 @@ export default function EverywhereLayer() {
       dirtyRef.current = true;
       flash('Screenshot guardado e tornado pesquisável.');
       await loadHub();
-    } catch (error) { flash(error.message); }
-    finally { setBusy(false); }
+    } catch (error) {
+      flash(error.message);
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function saveThought(event) {
@@ -149,8 +159,11 @@ export default function EverywhereLayer() {
       await everywhereService.captureThought({ text: thought.trim() });
       setThought('');
       flash('Pensamento guardado.');
-    } catch (error) { flash(error.message); }
-    finally { setBusy(false); }
+    } catch (error) {
+      flash(error.message);
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function applyIntent(value) {
@@ -161,20 +174,28 @@ export default function EverywhereLayer() {
       setVideos(items => items.map(item => item.id === updated.id ? updated : item));
       dirtyRef.current = true;
       flash('Entendi por que isso importa.');
-    } catch (error) { flash(error.message); }
+    } catch (error) {
+      flash(error.message);
+    }
   }
 
   async function runSynthesis(event) {
     event?.preventDefault();
     if (!search.trim()) return;
-    setBusy(true); setSynthesis(null);
-    try { setSynthesis(await everywhereService.synthesize(search.trim())); }
-    catch (error) { flash(error.message); }
-    finally { setBusy(false); }
+    setBusy(true);
+    setSynthesis(null);
+    try {
+      setSynthesis(await everywhereService.synthesize(search.trim()));
+    } catch (error) {
+      flash(error.message);
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function importFile(event) {
-    const file = event.target.files?.[0]; event.target.value = '';
+    const file = event.target.files?.[0];
+    event.target.value = '';
     if (!file) return;
     setBusy(true);
     try {
@@ -184,8 +205,11 @@ export default function EverywhereLayer() {
       dirtyRef.current = result.created > 0;
       flash(`${result.created} favoritos importados; ${result.duplicated} já estavam aqui.`);
       await loadHub();
-    } catch (error) { flash(error.message); }
-    finally { setBusy(false); }
+    } catch (error) {
+      flash(error.message);
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function createCollection(event) {
@@ -194,11 +218,15 @@ export default function EverywhereLayer() {
     setBusy(true);
     try {
       const created = await everywhereService.createCollection({ title: collectionTitle.trim(), videoIds: selectedIds, isPublic: true });
-      setCollectionTitle(''); setSelectedIds([]);
+      setCollectionTitle('');
+      setSelectedIds([]);
       setCollections(items => [created, ...items]);
       flash('Coleção compartilhável criada.');
-    } catch (error) { flash(error.message); }
-    finally { setBusy(false); }
+    } catch (error) {
+      flash(error.message);
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function createToken() {
@@ -208,27 +236,31 @@ export default function EverywhereLayer() {
       setLastToken(result.token || '');
       await loadHub();
       flash('Token criado. Copie agora: ele só aparece uma vez.');
-    } catch (error) { flash(error.message); }
-    finally { setBusy(false); }
-  }
-
-  async function createWhatsappCode() {
-    setBusy(true);
-    try { setWhatsappCode(await everywhereService.whatsappCode()); flash('Código temporário criado.'); }
-    catch (error) { flash(error.message); }
-    finally { setBusy(false); }
+    } catch (error) {
+      flash(error.message);
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function toggleSetting(key) {
     const next = !settings[key];
     setSettings(current => ({ ...current, [key]: next }));
-    try { setSettings(await everywhereService.updateSettings({ [key]: next })); }
-    catch (error) { setSettings(current => ({ ...current, [key]: !next })); flash(error.message); }
+    try {
+      setSettings(await everywhereService.updateSettings({ [key]: next }));
+    } catch (error) {
+      setSettings(current => ({ ...current, [key]: !next }));
+      flash(error.message);
+    }
   }
 
   async function copyText(value) {
-    try { await navigator.clipboard.writeText(value); flash('Copiado.'); }
-    catch { flash('Não consegui copiar automaticamente.'); }
+    try {
+      await navigator.clipboard.writeText(value);
+      flash('Copiado.');
+    } catch {
+      flash('Não consegui copiar automaticamente.');
+    }
   }
 
   const recentVideos = useMemo(() => videos.slice(0, 18), [videos]);
@@ -324,23 +356,13 @@ export default function EverywhereLayer() {
                     {collections.length ? <div className="collection-list">{collections.slice(0, 6).map(item => { const shareUrl = `${window.location.origin}/shared.html?slug=${encodeURIComponent(item.slug)}`; return <div key={item.id}><span><strong>{item.title}</strong><small>{item.itemCount ?? item.items?.length ?? 0} itens</small></span><button type="button" onClick={() => copyText(shareUrl)}><iconify-icon icon="lucide:copy" /> Copiar link</button></div>; })}</div> : null}
                   </section>
 
-                  <div className="capture-two-col">
-                    <section className="everywhere-card">
-                      <div className="everywhere-card-head"><div><span>Navegador</span><h3>Extensão 1 clique</h3></div><iconify-icon icon="lucide:puzzle" /></div>
-                      <p>Gere um token limitado apenas à captura. A extensão nunca recebe sua senha.</p>
-                      <button className="everywhere-secondary" type="button" onClick={createToken} disabled={busy}>Gerar token da extensão</button>
-                      {lastToken ? <div className="secret-box"><code>{lastToken}</code><button type="button" onClick={() => copyText(lastToken)}>Copiar</button></div> : null}
-                      <small className="everywhere-muted">{tokens.filter(item => !item.revokedAt).length} token(s) ativo(s). Veja a pasta <code>extension/</code> do projeto para instalar em modo desenvolvedor.</small>
-                    </section>
-
-                    <section className="everywhere-card">
-                      <div className="everywhere-card-head"><div><span>Sem abrir outro app</span><h3>WhatsApp → Guardei</h3></div><iconify-icon icon="lucide:message-circle" /></div>
-                      <p>Conecte seu número e encaminhe links ou ideias para o contato do Guardinho.</p>
-                      <button className="everywhere-secondary" type="button" onClick={createWhatsappCode} disabled={busy}>Gerar código de conexão</button>
-                      {whatsappCode ? <div className="connect-code"><strong>{whatsappCode.code}</strong><small>{whatsappCode.instruction}</small><button type="button" onClick={() => copyText(`GUARDEI ${whatsappCode.code}`)}>Copiar mensagem</button></div> : null}
-                      {integrations.some(item => item.provider === 'whatsapp') ? <span className="connected-pill"><iconify-icon icon="lucide:check" /> WhatsApp conectado</span> : null}
-                    </section>
-                  </div>
+                  <section className="everywhere-card">
+                    <div className="everywhere-card-head"><div><span>Navegador</span><h3>Extensão em um clique</h3></div><iconify-icon icon="lucide:puzzle" /></div>
+                    <p>Gere um token limitado apenas à captura. A extensão nunca recebe sua senha nem acesso amplo à conta.</p>
+                    <button className="everywhere-secondary" type="button" onClick={createToken} disabled={busy}>Gerar token da extensão</button>
+                    {lastToken ? <div className="secret-box"><code>{lastToken}</code><button type="button" onClick={() => copyText(lastToken)}>Copiar</button></div> : null}
+                    <small className="everywhere-muted">{tokens.filter(item => !item.revokedAt).length} token(s) ativo(s). Veja a pasta <code>extension/</code> do projeto para instalar em modo desenvolvedor.</small>
+                  </section>
 
                   <section className="everywhere-card">
                     <div className="everywhere-card-head"><div><span>Automação silenciosa</span><h3>O Guardei cuida por baixo</h3></div><iconify-icon icon="lucide:wand-sparkles" /></div>
@@ -391,4 +413,6 @@ function Tab({ active, icon, children, ...props }) {
   return <button type="button" className={active ? 'active' : ''} {...props}><iconify-icon icon={icon} /><span>{children}</span></button>;
 }
 
-function displayTitle(video) { return video?.titleCustom || video?.titleAi || video?.titleOriginal || 'Item guardado'; }
+function displayTitle(video) {
+  return video?.titleCustom || video?.titleAi || video?.titleOriginal || 'Item guardado';
+}
