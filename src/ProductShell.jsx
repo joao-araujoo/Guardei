@@ -130,6 +130,43 @@ function SmartLayer({ onVaultChanged }) {
     };
   }, [ready, settings.clipboardSuggestionsEnabled, videos]);
 
+  useEffect(() => {
+    const handleLegacyGuardinhoIntent = event => {
+      const target = event.target;
+      if (!(target instanceof Element)) return;
+
+      const intent = target.closest('.mascot-launcher, .mascot-speech');
+      if (!intent) return;
+
+      const legacyContainer = intent.closest('.floating-mascot');
+      if (legacyContainer?.classList.contains('open')) return;
+
+      event.preventDefault();
+      event.stopPropagation();
+      setPanelOpen(true);
+    };
+
+    document.addEventListener('click', handleLegacyGuardinhoIntent, true);
+    return () => document.removeEventListener('click', handleLegacyGuardinhoIntent, true);
+  }, []);
+
+  useEffect(() => {
+    if (!panelOpen) return undefined;
+
+    const previousOverflow = document.body.style.overflow;
+    const handleKeyDown = event => {
+      if (event.key === 'Escape') setPanelOpen(false);
+    };
+
+    document.body.style.overflow = 'hidden';
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [panelOpen]);
+
   async function inspectClipboard({ interactive = false } = {}) {
     if (!settings.clipboardSuggestionsEnabled || !navigator.clipboard?.readText || !window.isSecureContext) return null;
 
@@ -359,16 +396,16 @@ function SmartLayer({ onVaultChanged }) {
 
       {panelOpen ? (
         <div className="smart-panel-backdrop" onMouseDown={event => event.target === event.currentTarget && setPanelOpen(false)}>
-          <aside className="smart-panel" role="dialog" aria-modal="true" aria-label="Guardinho inteligente">
+          <aside className="smart-panel" role="dialog" aria-modal="true" aria-labelledby="guardinho-panel-title">
             <header className="smart-panel-header">
               <div className="smart-panel-identity">
                 <img src={guardeiMascot} alt="" />
                 <div>
                   <span>Seu acervo, menos passivo</span>
-                  <h2>Guardinho inteligente</h2>
+                  <h2 id="guardinho-panel-title">Guardinho inteligente</h2>
                 </div>
               </div>
-              <button className="smart-icon-button" type="button" onClick={() => setPanelOpen(false)} aria-label="Fechar">
+              <button className="smart-icon-button" type="button" onClick={() => setPanelOpen(false)} aria-label="Fechar Guardinho">
                 <iconify-icon icon="lucide:x" />
               </button>
             </header>

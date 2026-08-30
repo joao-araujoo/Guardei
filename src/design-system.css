@@ -1,0 +1,1206 @@
+/*
+ * Guardei Design System
+ * ---------------------
+ * Loaded after legacy styles to provide one visual contract for the whole app.
+ * New UI should consume these tokens instead of inventing local values.
+ */
+
+:root {
+  --ds-bg: #f5ecd8;
+  --ds-surface: #fffaf1;
+  --ds-surface-raised: #fffdf8;
+  --ds-surface-soft: #fff3d4;
+  --ds-ink: #2b241d;
+  --ds-text-muted: #725f4e;
+  --ds-text-soft: #9b8069;
+  --ds-border: #ddc8a6;
+  --ds-border-strong: #b99868;
+  --ds-success: #2f8f5b;
+  --ds-danger: #d94b3f;
+  --ds-info: #3476ae;
+  --ds-warning: #efb73c;
+  --ds-accent-pink: #e9799f;
+  --ds-focus: #3476ae;
+
+  --radius-sm: 10px;
+  --radius-md: 13px;
+  --radius-lg: 16px;
+  --radius-xl: 22px;
+  --radius-pill: 999px;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+
+  --shadow-sm: 3px 3px 0 rgba(43, 36, 29, .13);
+  --shadow-md: 6px 6px 0 rgba(43, 36, 29, .14);
+  --shadow-lg: 10px 10px 0 rgba(43, 36, 29, .18);
+  --shadow-overlay: 0 24px 64px rgba(43, 36, 29, .22);
+
+  --control-height: 44px;
+  --content-max: 1180px;
+  --transition-fast: 140ms ease;
+  --transition-base: 190ms ease;
+
+  /* Compatibility map for the original UI. */
+  --bg: var(--ds-bg);
+  --paper: var(--ds-surface);
+  --paper-2: var(--ds-surface-soft);
+  --ink: var(--ds-ink);
+  --muted: var(--ds-text-muted);
+  --soft: var(--ds-text-soft);
+  --line: var(--ds-border);
+  --line-2: var(--ds-border-strong);
+  --red: var(--ds-danger);
+  --green: var(--ds-success);
+  --blue: var(--ds-info);
+  --yellow: var(--ds-warning);
+  --pink: var(--ds-accent-pink);
+  --shadow: var(--shadow-md);
+}
+
+html {
+  background: var(--ds-bg);
+  scroll-behavior: smooth;
+}
+
+body {
+  background:
+    radial-gradient(circle at 8% 8%, rgba(255, 255, 255, .32), transparent 26rem),
+    var(--ds-bg);
+  color: var(--ds-ink);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+::selection {
+  background: #ffe2a0;
+  color: var(--ds-ink);
+}
+
+button,
+a,
+input,
+textarea,
+select {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button,
+input,
+textarea,
+select {
+  border-radius: var(--radius-md);
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+[role='button']:focus-visible,
+[tabindex]:focus-visible {
+  outline: 3px solid var(--ds-focus);
+  outline-offset: 3px;
+}
+
+input:not([type='checkbox']):not([type='radio']):not([type='file']),
+textarea,
+select {
+  min-height: var(--control-height);
+  border-color: var(--ds-border-strong);
+  background: var(--ds-surface-raised);
+  color: var(--ds-ink);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast), background var(--transition-fast);
+}
+
+input:not([type='checkbox']):not([type='radio']):not([type='file']):hover,
+textarea:hover,
+select:hover {
+  border-color: var(--ds-ink);
+}
+
+input:not([type='checkbox']):not([type='radio']):not([type='file']):focus,
+textarea:focus,
+select:focus {
+  border-color: var(--ds-ink);
+  box-shadow: 0 0 0 4px rgba(52, 118, 174, .13);
+}
+
+button:disabled,
+input:disabled,
+textarea:disabled,
+select:disabled {
+  cursor: not-allowed;
+}
+
+/* App shell and section rhythm */
+.app-shell {
+  width: min(var(--content-max), calc(100% - 32px));
+  padding-top: var(--space-6);
+}
+
+.view-stack {
+  gap: var(--space-5);
+}
+
+.topbar {
+  top: 10px;
+  min-height: 66px;
+  padding: 8px 10px;
+  border-radius: var(--radius-xl);
+  background: rgba(255, 250, 241, .96);
+  box-shadow: var(--shadow-md);
+  backdrop-filter: blur(10px);
+}
+
+.brand,
+.nav-btn,
+.top-actions,
+.user-menu,
+.panel-head,
+.hero-actions,
+.form-actions,
+.backup-actions {
+  min-width: 0;
+}
+
+.brand-logo {
+  max-width: 220px;
+}
+
+.nav-btn {
+  min-height: 40px;
+  padding-inline: 12px;
+  border-radius: var(--radius-md);
+}
+
+.nav-btn.active {
+  box-shadow: var(--shadow-sm);
+}
+
+.hero-panel,
+.add-card,
+.panel,
+.center-view,
+.video-card,
+.achievement-card,
+.mascot-panel,
+.auth-card {
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-md);
+}
+
+.hero-panel,
+.add-card,
+.panel {
+  border-color: var(--ds-ink);
+}
+
+.hero-panel {
+  padding: clamp(20px, 3vw, 30px);
+  gap: var(--space-6);
+}
+
+.hero-panel h1,
+.hero-panel h2,
+.compact-hero h2 {
+  text-wrap: balance;
+}
+
+.hero-panel p,
+.add-card p,
+.mascot-hero p {
+  text-wrap: pretty;
+}
+
+.eyebrow {
+  margin-bottom: var(--space-3);
+  border-radius: var(--radius-pill);
+  box-shadow: 2px 2px 0 rgba(43, 36, 29, .11);
+}
+
+.panel {
+  padding: var(--space-5);
+}
+
+.panel-head {
+  margin-bottom: var(--space-4);
+}
+
+.panel-head h3 {
+  letter-spacing: .04em;
+}
+
+.stats-grid,
+.video-grid,
+.achievement-grid,
+.category-worlds,
+.split-layout {
+  align-items: stretch;
+}
+
+.stat-card,
+.world-card,
+.compact-row,
+.report-row,
+.account-card,
+.setting-item,
+.toggle-item {
+  border-radius: var(--radius-lg);
+}
+
+.stat-card {
+  box-shadow: var(--shadow-md);
+}
+
+.compact-row,
+.report-row,
+.account-card,
+.setting-item,
+.toggle-item {
+  transition: transform var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.video-card {
+  box-shadow: var(--shadow-md);
+}
+
+.video-body {
+  padding: var(--space-4);
+}
+
+.video-body h3 {
+  text-wrap: pretty;
+}
+
+/* Buttons */
+.primary-btn,
+.primary-btn-small,
+.secondary-btn,
+.ghost-btn,
+.panel-head button,
+.review-actions button,
+.review-nav button,
+.filter-chip,
+.fixed-action-btn {
+  min-height: var(--control-height);
+  border-radius: var(--radius-md);
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast);
+}
+
+.primary-btn,
+.primary-btn-small {
+  box-shadow: var(--shadow-sm);
+}
+
+.secondary-btn,
+.ghost-btn,
+.panel-head button,
+.review-nav button,
+.filter-chip {
+  background: var(--ds-surface-raised);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .primary-btn:hover,
+  .primary-btn-small:hover,
+  .secondary-btn:hover,
+  .ghost-btn:hover,
+  .panel-head button:hover,
+  .review-actions button:hover,
+  .review-nav button:hover,
+  .filter-chip:hover,
+  .compact-row:hover,
+  .report-row:hover {
+    transform: translate(-1px, -1px);
+    box-shadow: var(--shadow-sm);
+  }
+}
+
+.primary-btn:active,
+.primary-btn-small:active,
+.secondary-btn:active,
+.ghost-btn:active,
+.panel-head button:active,
+.review-actions button:active,
+.review-nav button:active,
+.filter-chip:active {
+  transform: translate(1px, 1px);
+  box-shadow: none;
+}
+
+.danger {
+  background: #ffe6e1;
+  color: #9f2f27;
+}
+
+/* Forms */
+.field-item,
+.smart-form,
+.settings-grid {
+  gap: var(--space-3);
+}
+
+.field-item > span {
+  color: var(--ds-text-muted);
+  font-weight: 800;
+}
+
+.smart-form input,
+.smart-form textarea,
+.search-input,
+.modal-title-input,
+.modal-tags-input,
+.modal-two-fields input,
+.modal-selects select,
+.chat-form textarea,
+.setting-item input {
+  border-radius: var(--radius-md);
+}
+
+.search-input {
+  min-width: min(360px, 100%);
+}
+
+/* Chips and filters */
+.filter-strip {
+  gap: var(--space-2);
+  padding-bottom: 3px;
+}
+
+.filter-chip,
+.cat-badge,
+.priority,
+.platform-badge,
+.insight-row span,
+.ai-insights span,
+.tag-row span,
+.tag-editor span,
+.schema-pills span {
+  border-radius: var(--radius-pill);
+}
+
+/* Core video modal */
+.modal-backdrop {
+  z-index: 110;
+  padding: var(--space-4);
+  background: rgba(43, 36, 29, .55);
+  backdrop-filter: blur(4px);
+  overscroll-behavior: contain;
+}
+
+.modal-card {
+  width: min(640px, 100%);
+  max-height: min(900px, calc(100dvh - 32px));
+  border-radius: var(--radius-xl);
+  background: var(--ds-surface);
+  box-shadow: var(--shadow-overlay), var(--shadow-lg);
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+.modal-close {
+  top: 12px;
+  right: 12px;
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius-pill);
+  background: var(--ds-surface-raised);
+  box-shadow: var(--shadow-sm);
+}
+
+.modal-hero {
+  min-height: 190px;
+  max-height: 320px;
+  background: var(--ds-surface-soft);
+}
+
+.modal-content {
+  gap: var(--space-4);
+  padding: var(--space-6);
+}
+
+.modal-title-input {
+  min-height: 94px;
+  padding: 14px;
+  font-size: clamp(18px, 3vw, 22px);
+}
+
+.modal-meta-line {
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.modal-selects,
+.modal-two-fields {
+  gap: var(--space-3);
+}
+
+.modal-actions {
+  position: sticky;
+  bottom: -24px;
+  z-index: 2;
+  margin: 0 -24px -24px;
+  padding: 16px 24px calc(16px + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--ds-border);
+  background: rgba(255, 250, 241, .96);
+  backdrop-filter: blur(10px);
+}
+
+.modal-actions > * {
+  min-height: var(--control-height);
+}
+
+.ai-insights {
+  border-radius: var(--radius-lg);
+  background: #fff7e5;
+}
+
+/* Legacy Guardinho surface — still used by App.jsx in a few paths. */
+.floating-mascot {
+  right: max(16px, env(safe-area-inset-right));
+  bottom: max(16px, env(safe-area-inset-bottom));
+}
+
+.mascot-launcher {
+  width: 72px;
+  height: 72px;
+  border-radius: 20px;
+  box-shadow: var(--shadow-md);
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.mascot-speech {
+  border-radius: var(--radius-lg) var(--radius-lg) 5px var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+.mascot-popup {
+  width: min(500px, calc(100vw - 28px));
+  max-height: min(680px, calc(100dvh - 112px));
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-overlay), var(--shadow-md);
+  padding: var(--space-4);
+  overflow: hidden;
+}
+
+.mascot-popup-head {
+  margin-bottom: var(--space-3);
+}
+
+.mascot-popup-head img {
+  border-radius: var(--radius-md);
+}
+
+.chat-log {
+  min-height: 120px;
+  max-height: none;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: var(--space-2);
+}
+
+.chat-bubble {
+  max-width: min(86%, 560px);
+  border-radius: 14px 14px 14px 5px;
+  padding: 10px 12px;
+}
+
+.chat-bubble.user {
+  border-radius: 14px 14px 5px 14px;
+}
+
+.chat-form {
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+
+.chat-form textarea {
+  min-height: 56px;
+}
+
+/* Smart Guardinho: one visual language with the rest of the product. */
+.smart-layer-root {
+  --smart-panel-width: 510px;
+}
+
+/* The existing mascot remains the visible brand launcher. The smart button is
+   only the integration target until the legacy launcher is fully refactored. */
+.smart-guardinho-trigger {
+  display: none !important;
+}
+
+.smart-panel-backdrop {
+  z-index: 130;
+  align-items: stretch;
+  padding: 0;
+  background: rgba(43, 36, 29, .50);
+  backdrop-filter: blur(5px);
+  overscroll-behavior: contain;
+}
+
+.smart-panel {
+  width: min(var(--smart-panel-width), 100%);
+  height: 100dvh;
+  max-height: 100dvh;
+  border-width: 0 0 0 2px;
+  border-radius: var(--radius-xl) 0 0 var(--radius-xl);
+  background: var(--ds-bg);
+  box-shadow: -18px 0 54px rgba(43, 36, 29, .20);
+}
+
+.smart-panel-header {
+  position: sticky;
+  top: 0;
+  z-index: 4;
+  min-height: 76px;
+  padding: 12px 14px;
+  background: rgba(255, 250, 241, .97);
+  backdrop-filter: blur(12px);
+}
+
+.smart-panel-identity {
+  min-width: 0;
+}
+
+.smart-panel-identity img {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-md);
+}
+
+.smart-panel-identity > div {
+  min-width: 0;
+}
+
+.smart-panel-identity h2 {
+  overflow: hidden;
+  font-size: clamp(20px, 4vw, 24px);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.smart-icon-button {
+  width: 42px;
+  height: 42px;
+  border-radius: var(--radius-md);
+  background: var(--ds-surface-raised);
+}
+
+.smart-panel-scroll {
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-3) calc(var(--space-6) + env(safe-area-inset-bottom));
+  overscroll-behavior: contain;
+}
+
+.smart-recommendation-card,
+.smart-empty-card,
+.smart-chat,
+.smart-quick-actions,
+.smart-settings-row {
+  border-radius: var(--radius-lg);
+  background: var(--ds-surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.smart-recommendation-card,
+.smart-quick-actions {
+  padding: var(--space-4);
+}
+
+.smart-recommendation-card h3 {
+  margin-top: 4px;
+  font-size: 20px;
+  text-wrap: pretty;
+}
+
+.smart-settings-row {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.smart-settings-row button {
+  min-height: 68px;
+  padding: 10px;
+}
+
+.smart-settings-row strong {
+  font-size: 11px;
+}
+
+.smart-settings-row small {
+  font-size: 9px;
+}
+
+.smart-quick-actions > div {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+
+.smart-quick-actions button {
+  min-height: 44px;
+  justify-content: center;
+  padding: 8px;
+  text-align: center;
+}
+
+.smart-chat {
+  min-height: 300px;
+}
+
+.smart-chat-messages {
+  min-height: 210px;
+  max-height: min(38dvh, 390px);
+  padding: var(--space-3);
+  overscroll-behavior: contain;
+}
+
+.smart-message p {
+  max-width: 86%;
+  padding: 10px 12px;
+  font-size: 12px;
+}
+
+.smart-command-form {
+  grid-template-columns: minmax(0, 1fr) 44px;
+  gap: var(--space-2);
+  padding: 10px;
+}
+
+.smart-command-form input,
+.smart-command-form button {
+  min-height: 44px;
+}
+
+.smart-command-hint {
+  padding-inline: 12px;
+  padding-bottom: 12px;
+}
+
+.smart-toast {
+  width: min(720px, calc(100vw - 24px));
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-overlay), var(--shadow-sm);
+}
+
+.smart-flash {
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+}
+
+/* Mobile navigation and compact layouts */
+.mobile-dock {
+  bottom: max(8px, env(safe-area-inset-bottom));
+  border-radius: var(--radius-xl);
+  box-shadow: 0 10px 28px rgba(43, 36, 29, .16), var(--shadow-sm);
+  backdrop-filter: blur(12px);
+}
+
+.mobile-dock button {
+  min-height: 50px;
+}
+
+.toast {
+  max-width: calc(100vw - 24px);
+  border-radius: var(--radius-pill);
+}
+
+@media (max-width: 880px) {
+  .app-shell {
+    width: min(100% - 20px, 720px);
+    padding-top: 12px;
+  }
+
+  .topbar {
+    min-height: 60px;
+    border-radius: 18px;
+  }
+
+  .brand-logo {
+    max-width: 170px;
+  }
+
+  .hero-panel,
+  .add-card,
+  .panel {
+    border-radius: 18px;
+  }
+
+  .split-layout,
+  .mascot-view {
+    gap: var(--space-4);
+  }
+
+  .modal-card {
+    max-height: calc(100dvh - 20px);
+  }
+
+  .modal-content {
+    padding: var(--space-5);
+  }
+
+  .modal-actions {
+    bottom: -20px;
+    margin: 0 -20px -20px;
+    padding-inline: 20px;
+  }
+}
+
+@media (max-width: 720px) {
+  .smart-panel-backdrop {
+    align-items: flex-end;
+  }
+
+  .smart-panel {
+    position: relative;
+    width: 100%;
+    height: min(92dvh, 820px);
+    max-height: 92dvh;
+    border-width: 2px 0 0;
+    border-radius: 24px 24px 0 0;
+    box-shadow: 0 -18px 48px rgba(43, 36, 29, .18);
+  }
+
+  .smart-panel::before {
+    content: '';
+    position: absolute;
+    top: 7px;
+    left: 50%;
+    z-index: 6;
+    width: 42px;
+    height: 4px;
+    border-radius: var(--radius-pill);
+    background: rgba(43, 36, 29, .22);
+    transform: translateX(-50%);
+    pointer-events: none;
+  }
+
+  .smart-panel-header {
+    min-height: 74px;
+    padding-top: 16px;
+  }
+
+  .smart-settings-row {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .smart-settings-row button {
+    flex-direction: column;
+    justify-content: center;
+    gap: 5px;
+    border-right: 1px solid var(--ds-border);
+    border-bottom: 0;
+    text-align: center;
+  }
+
+  .smart-settings-row button:last-child {
+    border-right: 0;
+  }
+
+  .smart-settings-row span {
+    justify-items: center;
+  }
+
+  .smart-quick-actions > div {
+    grid-template-columns: 1fr;
+  }
+
+  .smart-quick-actions button {
+    justify-content: flex-start;
+    text-align: left;
+  }
+
+  .smart-toast {
+    bottom: calc(94px + env(safe-area-inset-bottom));
+  }
+
+  .smart-toast-actions {
+    padding-left: 0;
+  }
+}
+
+@media (max-width: 520px) {
+  :root {
+    --shadow-md: 4px 4px 0 rgba(43, 36, 29, .12);
+    --shadow-lg: 6px 6px 0 rgba(43, 36, 29, .15);
+  }
+
+  body {
+    background: var(--ds-bg);
+  }
+
+  .app-shell {
+    width: calc(100% - 16px);
+    padding-top: 8px;
+    padding-bottom: calc(114px + env(safe-area-inset-bottom));
+  }
+
+  .view-stack {
+    gap: var(--space-3);
+  }
+
+  .topbar {
+    top: 6px;
+    min-height: 56px;
+    margin-bottom: var(--space-4);
+    padding: 7px 8px;
+    border-radius: var(--radius-lg);
+  }
+
+  .brand-logo {
+    width: auto;
+    height: 40px;
+    max-width: min(120px, 34vw);
+  }
+
+  .hero-panel,
+  .add-card,
+  .panel,
+  .center-view,
+  .auth-card {
+    border-radius: var(--radius-lg);
+  }
+
+  .hero-panel,
+  .add-card,
+  .panel {
+    padding: var(--space-4);
+  }
+
+  .hero-panel h1 {
+    font-size: clamp(30px, 9.2vw, 38px);
+    line-height: 1;
+  }
+
+  .hero-panel h2,
+  h2 {
+    font-size: clamp(27px, 8vw, 34px);
+  }
+
+  .hero-actions,
+  .form-actions,
+  .backup-actions {
+    width: 100%;
+  }
+
+  .hero-actions > *,
+  .form-actions > *,
+  .backup-actions > * {
+    min-width: 0;
+  }
+
+  .stats-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .stat-card {
+    min-height: 96px;
+  }
+
+  .video-grid,
+  .achievement-grid {
+    gap: var(--space-3);
+  }
+
+  .filter-chip {
+    min-height: 40px;
+  }
+
+  .modal-backdrop {
+    align-items: end;
+    padding: 8px;
+  }
+
+  .modal-card {
+    width: 100%;
+    max-height: calc(100dvh - 16px);
+    border-radius: 20px;
+    box-shadow: 0 14px 42px rgba(43, 36, 29, .24), var(--shadow-sm);
+  }
+
+  .modal-hero {
+    min-height: 132px;
+    max-height: 200px;
+  }
+
+  .modal-content {
+    gap: var(--space-3);
+    padding: var(--space-4);
+  }
+
+  .modal-title-input {
+    min-height: 84px;
+    font-size: 18px;
+  }
+
+  .modal-meta-line {
+    display: grid;
+    gap: 6px;
+  }
+
+  .modal-selects,
+  .modal-two-fields {
+    grid-template-columns: 1fr;
+  }
+
+  .modal-actions {
+    bottom: -16px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    margin: 0 -16px -16px;
+    padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+  }
+
+  .modal-actions > * {
+    width: 100%;
+    min-width: 0;
+    justify-content: center;
+  }
+
+  .floating-mascot {
+    right: 8px;
+    bottom: calc(82px + env(safe-area-inset-bottom));
+  }
+
+  .floating-mascot.open {
+    position: fixed;
+    inset: 0;
+    z-index: 115;
+    display: block;
+    padding: 8px 8px calc(80px + env(safe-area-inset-bottom));
+    background: rgba(43, 36, 29, .48);
+    backdrop-filter: blur(4px);
+  }
+
+  .floating-mascot.open .mascot-popup {
+    position: absolute;
+    left: 8px;
+    right: 8px;
+    bottom: calc(78px + env(safe-area-inset-bottom));
+    width: auto;
+    max-height: calc(100dvh - 98px - env(safe-area-inset-bottom));
+    border-radius: 20px;
+    box-shadow: 0 18px 48px rgba(43, 36, 29, .22);
+  }
+
+  .floating-mascot.open .mascot-launcher {
+    position: absolute;
+    right: 8px;
+    bottom: calc(8px + env(safe-area-inset-bottom));
+  }
+
+  .mascot-launcher {
+    width: 56px;
+    height: 56px;
+    border-radius: 17px;
+  }
+
+  .mascot-popup {
+    padding: var(--space-3);
+  }
+
+  .mascot-popup-head strong {
+    font-size: 17px;
+  }
+
+  .chat-log {
+    min-height: 0;
+  }
+
+  .chat-form {
+    grid-template-columns: 1fr;
+  }
+
+  .chat-form .primary-btn {
+    width: 100%;
+  }
+
+  .smart-panel {
+    height: min(94dvh, 840px);
+    max-height: 94dvh;
+  }
+
+  .smart-panel-header {
+    gap: 8px;
+    padding-inline: 10px;
+  }
+
+  .smart-panel-identity {
+    gap: 8px;
+  }
+
+  .smart-panel-identity img {
+    width: 42px;
+    height: 42px;
+  }
+
+  .smart-panel-identity span {
+    margin-bottom: 2px;
+    font-size: 8px;
+  }
+
+  .smart-panel-identity h2 {
+    font-size: 19px;
+  }
+
+  .smart-panel-scroll {
+    padding: 10px 8px calc(14px + env(safe-area-inset-bottom));
+  }
+
+  .smart-recommendation-card,
+  .smart-quick-actions {
+    padding: 12px;
+  }
+
+  .smart-settings-row button {
+    min-height: 72px;
+    padding: 8px 4px;
+  }
+
+  .smart-settings-row strong {
+    font-size: 9px;
+  }
+
+  .smart-settings-row small {
+    max-width: 100%;
+    font-size: 8px;
+  }
+
+  .smart-chat {
+    min-height: 280px;
+  }
+
+  .smart-chat-messages {
+    min-height: 170px;
+    max-height: 34dvh;
+    padding: 10px;
+  }
+
+  .smart-message p {
+    max-width: calc(100% - 36px);
+    font-size: 11px;
+  }
+
+  .smart-command-hint {
+    font-size: 8px;
+  }
+
+  .smart-toast {
+    width: calc(100vw - 16px);
+    padding: 10px;
+    border-radius: var(--radius-lg);
+  }
+
+  .smart-toast-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+  }
+
+  .smart-toast-actions .smart-link-button {
+    grid-column: 1 / -1;
+  }
+
+  .smart-primary-button,
+  .smart-secondary-button {
+    min-height: 40px;
+    text-align: center;
+  }
+
+  .mobile-dock {
+    width: calc(100% - 16px);
+  }
+
+  .mobile-dock button {
+    min-height: 48px;
+  }
+}
+
+@media (max-width: 380px) {
+  .topbar {
+    gap: 6px;
+  }
+
+  .brand-logo {
+    max-width: 98px;
+  }
+
+  .hero-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .hero-actions button {
+    grid-column: auto;
+  }
+
+  .modal-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .smart-settings-row {
+    grid-template-columns: 1fr;
+  }
+
+  .smart-settings-row button {
+    min-height: 48px;
+    flex-direction: row;
+    justify-content: flex-start;
+    border-right: 0;
+    border-bottom: 1px solid var(--ds-border);
+    padding: 8px 10px;
+    text-align: left;
+  }
+
+  .smart-settings-row button:last-child {
+    border-bottom: 0;
+  }
+
+  .smart-settings-row span {
+    justify-items: start;
+  }
+}
+
+@media (pointer: coarse) {
+  button,
+  [role='button'],
+  a {
+    touch-action: manipulation;
+  }
+
+  .nav-btn,
+  .filter-chip,
+  .panel-head button,
+  .review-actions button,
+  .review-nav button,
+  .smart-primary-button,
+  .smart-secondary-button,
+  .smart-quick-actions button,
+  .smart-settings-row button,
+  .smart-icon-button {
+    min-height: 44px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+  }
+}
