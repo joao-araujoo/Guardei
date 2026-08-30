@@ -7,6 +7,7 @@ export async function classifySavedLink({ url, title = "", description = "" }) {
     headers: {
       "Content-Type": "application/json",
     },
+    credentials: "include",
     body: JSON.stringify({
       url,
       title,

@@ -1,0 +1,65 @@
+name: Semantic Evolution CI
+
+on:
+  push:
+    branches:
+      - feat/semantic-search-learning-paths
+  pull_request:
+    branches:
+      - feat/intelligent-capsules
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      NODE_ENV: test
+      DATABASE_URL: postgresql://guardei:guardei@localhost:5432/guardei
+      DATABASE_DIRECT_URL: postgresql://guardei:guardei@localhost:5432/guardei
+      NPM_CONFIG_FETCH_RETRIES: 3
+      NPM_CONFIG_FETCH_TIMEOUT: 60000
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Ensure public npm registry lockfiles
+        shell: bash
+        run: |
+          if grep -R 'packages.applied-caas-gateway1.internal.api.openai.org' package-lock.json server/package-lock.json; then
+            echo 'An internal registry URL is present in a lockfile.'
+            exit 1
+          fi
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            server/package-lock.json
+
+      - name: Install frontend dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Audit frontend dependencies
+        run: npm audit --audit-level=high
+
+      - name: Build frontend
+        run: npm run build
+
+      - name: Install backend dependencies
+        run: npm ci --prefix server --no-audit --no-fund
+
+      - name: Audit backend dependencies
+        run: npm audit --prefix server --audit-level=high
+
+      - name: Generate Prisma client
+        run: npm --prefix server run db:generate
+
+      - name: Validate backend initialization
+        run: node -e "import('./server/src/index.js').then(() => console.log('Backend initialized successfully'))"
+
+      - name: Run backend tests
+        run: npm --prefix server test
