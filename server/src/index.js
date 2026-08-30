@@ -28,7 +28,7 @@ import importRoutes from "./routes/importRoutes.js";
 import collectionRoutes from "./routes/collectionRoutes.js";
 import integrationRoutes from "./routes/integrationRoutes.js";
 import whatsappRoutes from "./routes/whatsappRoutes.js";
-import { parseOrigins, securityHeaders, verifyRequestOrigin } from "./middleware/security.js";
+import { isExtensionOrigin, parseOrigins, securityHeaders, verifyRequestOrigin } from "./middleware/security.js";
 import { safeLog } from "./security/safeLog.js";
 import { getPushConfig, startPushScheduler } from "./push/webPush.js";
 import { startDigestScheduler } from "./everywhere/digestScheduler.js";
@@ -52,12 +52,13 @@ export function createApp() {
     const protocol = forwardedProtocol || (req.secure ? "https" : "http");
     const host = req.get("x-forwarded-host")?.split(",")[0]?.trim() || req.get("host");
     const requestOrigin = host ? `${protocol}://${host}`.replace(/\/$/, "") : "";
-    const originAllowed = !origin || origin === requestOrigin || corsOrigins.includes(origin);
+    const extensionCapture = isExtensionOrigin(origin) && req.path.startsWith("/api/capture");
+    const originAllowed = !origin || origin === requestOrigin || corsOrigins.includes(origin) || extensionCapture;
 
     if (!originAllowed) return callback(new Error("CORS_ORIGIN_BLOCKED"));
     return callback(null, {
       origin: true,
-      credentials: true,
+      credentials: !extensionCapture,
       methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
       allowedHeaders: ["Content-Type", "Authorization", "X-Push-Cron-Secret", "X-Hub-Signature-256"],
     });
