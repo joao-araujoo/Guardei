@@ -6,6 +6,7 @@ import PushBootstrap from './PushBootstrap.jsx';
 import EverywhereLayer from './features/everywhere/EverywhereLayer.jsx';
 import './styles.css';
 import './design-system.css';
+import './home-simplify.css';
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
