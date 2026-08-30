@@ -26,8 +26,6 @@ import spaceRoutes from "./routes/spaceRoutes.js";
 import synthesisRoutes from "./routes/synthesisRoutes.js";
 import importRoutes from "./routes/importRoutes.js";
 import collectionRoutes from "./routes/collectionRoutes.js";
-import integrationRoutes from "./routes/integrationRoutes.js";
-import whatsappRoutes from "./routes/whatsappRoutes.js";
 import { isExtensionOrigin, parseOrigins, securityHeaders, verifyRequestOrigin } from "./middleware/security.js";
 import { safeLog } from "./security/safeLog.js";
 import { getPushConfig, startPushScheduler } from "./push/webPush.js";
@@ -60,16 +58,10 @@ export function createApp() {
       origin: true,
       credentials: !extensionCapture,
       methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-      allowedHeaders: ["Content-Type", "Authorization", "X-Push-Cron-Secret", "X-Hub-Signature-256"],
+      allowedHeaders: ["Content-Type", "Authorization", "X-Push-Cron-Secret"],
     });
   }));
-  app.use(express.json({
-    limit: "6mb",
-    strict: true,
-    verify(req, _res, buffer) {
-      if (req.originalUrl?.startsWith("/api/integrations/whatsapp")) req.rawBody = Buffer.from(buffer);
-    },
-  }));
+  app.use(express.json({ limit: "6mb", strict: true }));
   app.use(verifyRequestOrigin);
 
   app.get("/api", (_req, res) => {
@@ -106,8 +98,6 @@ export function createApp() {
   app.use("/api/synthesis", synthesisRoutes);
   app.use("/api/import", importRoutes);
   app.use("/api/collections", collectionRoutes);
-  app.use("/api/integrations/whatsapp", whatsappRoutes);
-  app.use("/api/integrations", integrationRoutes);
   app.use("/api/videos", capsuleRoutes);
   app.use("/api/videos", reflectionRoutes);
   app.use("/api/videos", videoRoutes);
