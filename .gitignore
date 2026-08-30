@@ -2,3 +2,4 @@
 .env
 server/.env
 server/node_modules
+server/backend-audit-report.json
