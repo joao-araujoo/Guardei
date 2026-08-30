@@ -3,7 +3,7 @@ import { GoogleGenAI, Type } from "@google/genai";
 const ALLOWED_MIME = new Set(["image/png", "image/jpeg", "image/webp"]);
 const MAX_IMAGE_BYTES = 4 * 1024 * 1024;
 
-export async function analyzeScreenshot(dataUrl) {
+export async function analyzeScreenshot(dataUrl, { enableAi = true } = {}) {
   const image = parseImageDataUrl(dataUrl);
   const fallback = {
     title: "Screenshot salvo",
@@ -14,7 +14,7 @@ export async function analyzeScreenshot(dataUrl) {
     tags: ["screenshot"],
     priority: "baixa",
   };
-  if (!process.env.GEMINI_API_KEY) return { ...fallback, image };
+  if (!enableAi || !process.env.GEMINI_API_KEY) return { ...fallback, image };
 
   try {
     const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
@@ -68,5 +68,8 @@ function clean(value, max) {
 }
 
 function inputError(message) {
-  const error = new Error(message); error.status = 400; error.code = "INVALID_IMAGE"; return error;
+  const error = new Error(message);
+  error.status = 400;
+  error.code = "INVALID_IMAGE";
+  return error;
 }
