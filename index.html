@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <meta name="theme-color" content="#f6edd8" />
+    <meta name="theme-color" content="#f5ecd8" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -12,33 +12,10 @@
     <link rel="icon" type="image/png" href="/icons/guardei-icon.png" />
     <link rel="apple-touch-icon" href="/icons/guardei-icon.png" />
     <script src="https://code.iconify.design/iconify-icon/2.1.0/iconify-icon.min.js"></script>
-    <style>.smart-guardinho-trigger { display: none !important; }</style>
     <title>Guardei - Acervo com IA</title>
   </head>
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
-    <script>
-      document.addEventListener('click', function (event) {
-        var target = event.target;
-        if (!target || typeof target.closest !== 'function') return;
-
-        var legacyLauncher = target.closest('.mascot-launcher');
-        var legacySpeech = target.closest('.mascot-speech');
-        if (!legacyLauncher && !legacySpeech) return;
-
-        if (legacyLauncher) {
-          var legacyContainer = legacyLauncher.closest('.floating-mascot');
-          if (legacyContainer && legacyContainer.classList.contains('open')) return;
-        }
-
-        var smartLauncher = document.querySelector('.smart-guardinho-trigger');
-        if (!smartLauncher) return;
-
-        event.preventDefault();
-        event.stopPropagation();
-        smartLauncher.click();
-      }, true);
-    </script>
   </body>
 </html>
