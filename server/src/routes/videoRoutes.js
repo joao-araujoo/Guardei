@@ -2,6 +2,7 @@ import express from "express";
 import { requireAuth } from "../middleware/auth.js";
 import { prisma } from "../db/prisma.js";
 import { scheduleEmbeddingRefresh, markEmbeddingOutdated } from "../embeddings/embeddingService.js";
+import { scheduleContentSnapshot } from "../everywhere/snapshotService.js";
 
 const router = express.Router();
 
@@ -12,7 +13,7 @@ router.get("/", async (req, res, next) => {
     const items = await prisma.video.findMany({
       where: { userId: req.user.id },
       orderBy: { createdAt: "desc" },
-      include: capsuleSummaryInclude,
+      include: videoSummaryInclude,
     });
     res.json(items.map(fromDbVideo));
   } catch (error) {
@@ -30,11 +31,13 @@ router.post("/", async (req, res, next) => {
         userId: req.user.id,
         OR: [{ url: video.url }, { canonicalUrl: video.canonicalUrl || video.url }],
       },
+      include: videoSummaryInclude,
     });
     if (existing) return res.json({ video: fromDbVideo(existing), duplicated: true });
 
-    const created = await prisma.video.create({ data: toDbVideo(video, req.user.id) });
+    const created = await prisma.video.create({ data: toDbVideo(video, req.user.id), include: videoSummaryInclude });
     scheduleEmbeddingRefresh(prisma, req.user.id, created.id);
+    scheduleContentSnapshot(prisma, req.user.id, created.id);
     res.status(201).json({ video: fromDbVideo(created), duplicated: false });
   } catch (error) {
     next(error);
@@ -49,11 +52,12 @@ router.patch("/:id", async (req, res, next) => {
     });
     if (!result.count) return res.status(404).json({ ok: false, message: "Video nao encontrado." });
 
-    const updated = await prisma.video.findUnique({ where: { id: req.params.id }, include: capsuleSummaryInclude });
+    const updated = await prisma.video.findUnique({ where: { id: req.params.id }, include: videoSummaryInclude });
     if (embeddingRelevantPatch(req.body || {})) {
       await markEmbeddingOutdated(prisma, req.user.id, req.params.id);
       scheduleEmbeddingRefresh(prisma, req.user.id, req.params.id);
     }
+    if (snapshotRelevantPatch(req.body || {})) scheduleContentSnapshot(prisma, req.user.id, req.params.id);
     res.json(fromDbVideo(updated));
   } catch (error) {
     next(error);
@@ -72,25 +76,24 @@ router.delete("/:id", async (req, res, next) => {
 
 router.post("/import", async (req, res, next) => {
   try {
-    const videos = Array.isArray(req.body?.videos) ? req.body.videos : [];
+    const videos = Array.isArray(req.body?.videos) ? req.body.videos.slice(0, 500) : [];
     for (const video of videos) {
       if (!video.url) continue;
       const existing = await prisma.video.findFirst({ where: { userId: req.user.id, url: video.url } });
       if (existing) {
-        await prisma.video.update({
-          where: { id: existing.id },
-          data: toDbVideoPatch(video),
-        });
+        await prisma.video.update({ where: { id: existing.id }, data: toDbVideoPatch(video) });
         scheduleEmbeddingRefresh(prisma, req.user.id, existing.id);
+        scheduleContentSnapshot(prisma, req.user.id, existing.id);
       } else {
         const created = await prisma.video.create({ data: toDbVideo(video, req.user.id) });
         scheduleEmbeddingRefresh(prisma, req.user.id, created.id);
+        scheduleContentSnapshot(prisma, req.user.id, created.id);
       }
     }
     const all = await prisma.video.findMany({
       where: { userId: req.user.id },
       orderBy: { createdAt: "desc" },
-      include: capsuleSummaryInclude,
+      include: videoSummaryInclude,
     });
     res.json(all.map(fromDbVideo));
   } catch (error) {
@@ -119,6 +122,7 @@ function toDbVideo(video, userId) {
     description: video.description,
     category: video.category || "misc",
     reason: video.reason || "guardar",
+    savedFor: normalizeSavedFor(video.savedFor || video.reason),
     tags: Array.isArray(video.tags) ? video.tags : [],
     priority: normalizePriority(video.priority),
     status: normalizeStatus(video.status),
@@ -141,7 +145,7 @@ function toDbVideo(video, userId) {
     sourceText: video.sourceText,
     origin: video.origin || "manual",
     reviewCount: Number(video.reviewCount || 0),
-    schemaVersion: Number(video.schemaVersion || 3),
+    schemaVersion: Number(video.schemaVersion || 4),
     aiEngine: video.ai?.engine,
     aiConfidence: Number.isFinite(video.ai?.confidence) ? video.ai.confidence : null,
     aiRationale: video.ai?.rationale,
@@ -164,7 +168,7 @@ export function toDbVideoPatch(patch) {
   for (const field of directFields) {
     if (patch[field] !== undefined) data[field] = patch[field];
   }
-
+  if (patch.savedFor !== undefined) data.savedFor = normalizeSavedFor(patch.savedFor);
   if (patch.priority !== undefined) data.priority = normalizePriority(patch.priority);
   if (patch.status !== undefined) {
     data.status = normalizeStatus(patch.status);
@@ -190,7 +194,7 @@ export function toDbVideoPatch(patch) {
   return data;
 }
 
-const capsuleSummaryInclude = {
+const videoSummaryInclude = {
   capsule: {
     select: {
       id: true,
@@ -201,6 +205,25 @@ const capsuleSummaryInclude = {
       generatedAt: true,
       updatedAt: true,
     },
+  },
+  snapshot: {
+    select: {
+      id: true,
+      sourceStatus: true,
+      excerpt: true,
+      capturedAt: true,
+    },
+  },
+  assets: {
+    select: {
+      id: true,
+      kind: true,
+      mimeType: true,
+      ocrText: true,
+      createdAt: true,
+    },
+    take: 3,
+    orderBy: { createdAt: "desc" },
   },
 };
 
@@ -219,6 +242,11 @@ export function fromDbVideo(video) {
       generatedAt: video.capsule.generatedAt?.toISOString?.() || video.capsule.generatedAt,
       updatedAt: video.capsule.updatedAt?.toISOString?.() || video.capsule.updatedAt,
     } : null,
+    snapshot: video.snapshot ? {
+      ...video.snapshot,
+      capturedAt: video.snapshot.capturedAt?.toISOString?.() || video.snapshot.capturedAt,
+    } : null,
+    assets: Array.isArray(video.assets) ? video.assets.map(asset => ({ ...asset, createdAt: asset.createdAt?.toISOString?.() || asset.createdAt })) : [],
     ai: {
       engine: video.aiEngine,
       confidence: video.aiConfidence,
@@ -235,6 +263,10 @@ function normalizeStatus(value) {
   return ["inbox", "novo", "rever", "importante", "aplicado", "arquivado"].includes(value) ? value : "novo";
 }
 
+function normalizeSavedFor(value) {
+  return ["ver-depois", "aprender", "aplicar", "inspirar", "comprar", "refletir", "guardar"].includes(value) ? value : null;
+}
+
 export function normalizeApplicationStatus(value, status) {
   if (["none", "planned", "in_progress", "completed", "legacy_applied"].includes(value)) return value;
   return status === "aplicado" ? "legacy_applied" : "none";
@@ -246,7 +278,11 @@ function cleanOptional(value, max) {
 }
 
 function embeddingRelevantPatch(patch) {
-  return ["titleCustom", "titleAi", "titleOriginal", "description", "note", "category", "tags", "summary"].some((field) => patch[field] !== undefined);
+  return ["titleCustom", "titleAi", "titleOriginal", "description", "note", "category", "tags", "summary", "savedFor"].some(field => patch[field] !== undefined);
+}
+
+function snapshotRelevantPatch(patch) {
+  return ["titleCustom", "titleAi", "titleOriginal", "description", "note", "tags", "sourceText"].some(field => patch[field] !== undefined);
 }
 
 export default router;
