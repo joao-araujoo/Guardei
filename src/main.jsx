@@ -4,6 +4,7 @@ import App from './App.jsx';
 import ProductShell from './ProductShell.jsx';
 import PushBootstrap from './PushBootstrap.jsx';
 import './styles.css';
+import './design-system.css';
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
