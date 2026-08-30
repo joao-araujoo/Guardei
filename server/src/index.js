@@ -18,9 +18,21 @@ import knowledgeRoutes from "./routes/knowledgeRoutes.js";
 import pushRoutes from "./routes/pushRoutes.js";
 import settingsRoutes from "./routes/settingsRoutes.js";
 import videoRoutes from "./routes/videoRoutes.js";
+import captureRoutes from "./routes/captureRoutes.js";
+import captureTokenRoutes from "./routes/captureTokenRoutes.js";
+import snapshotRoutes from "./routes/snapshotRoutes.js";
+import digestRoutes from "./routes/digestRoutes.js";
+import spaceRoutes from "./routes/spaceRoutes.js";
+import synthesisRoutes from "./routes/synthesisRoutes.js";
+import importRoutes from "./routes/importRoutes.js";
+import collectionRoutes from "./routes/collectionRoutes.js";
+import integrationRoutes from "./routes/integrationRoutes.js";
+import whatsappRoutes from "./routes/whatsappRoutes.js";
 import { parseOrigins, securityHeaders, verifyRequestOrigin } from "./middleware/security.js";
 import { safeLog } from "./security/safeLog.js";
 import { getPushConfig, startPushScheduler } from "./push/webPush.js";
+import { startDigestScheduler } from "./everywhere/digestScheduler.js";
+import { prisma } from "./db/prisma.js";
 
 dotenv.config();
 
@@ -47,10 +59,16 @@ export function createApp() {
       origin: true,
       credentials: true,
       methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-      allowedHeaders: ["Content-Type", "Authorization", "X-Push-Cron-Secret"],
+      allowedHeaders: ["Content-Type", "Authorization", "X-Push-Cron-Secret", "X-Hub-Signature-256"],
     });
   }));
-  app.use(express.json({ limit: "2mb", strict: true }));
+  app.use(express.json({
+    limit: "6mb",
+    strict: true,
+    verify(req, _res, buffer) {
+      if (req.originalUrl?.startsWith("/api/integrations/whatsapp")) req.rawBody = Buffer.from(buffer);
+    },
+  }));
   app.use(verifyRequestOrigin);
 
   app.get("/api", (_req, res) => {
@@ -59,6 +77,8 @@ export function createApp() {
       name: "Guardei API",
       ai_provider: process.env.AI_PROVIDER || "local",
       web_push: getPushConfig().enabled,
+      universal_capture: true,
+      knowledge_cycle: true,
     });
   });
 
@@ -68,6 +88,7 @@ export function createApp() {
       status: "online",
       ai_provider: process.env.GEMINI_API_KEY ? "gemini" : "local-fallback",
       web_push: getPushConfig().enabled ? "configured" : "not-configured",
+      universal_capture: "ready",
     });
   });
 
@@ -76,6 +97,16 @@ export function createApp() {
   app.use("/api/ai", aiRoutes);
   app.use("/api/push", pushRoutes);
   app.use("/api/settings", settingsRoutes);
+  app.use("/api/capture", captureRoutes);
+  app.use("/api/capture-tokens", captureTokenRoutes);
+  app.use("/api/snapshots", snapshotRoutes);
+  app.use("/api/digests", digestRoutes);
+  app.use("/api/spaces", spaceRoutes);
+  app.use("/api/synthesis", synthesisRoutes);
+  app.use("/api/import", importRoutes);
+  app.use("/api/collections", collectionRoutes);
+  app.use("/api/integrations", integrationRoutes);
+  app.use("/api/integrations/whatsapp", whatsappRoutes);
   app.use("/api/videos", capsuleRoutes);
   app.use("/api/videos", reflectionRoutes);
   app.use("/api/videos", videoRoutes);
@@ -125,6 +156,7 @@ if (process.env.NODE_ENV !== "test") {
     console.log(`Guardei API rodando em http://localhost:${port}`);
     console.log(`Web Push: ${getPushConfig().enabled ? "configurado" : "aguardando VAPID_PUBLIC_KEY/VAPID_PRIVATE_KEY/VAPID_SUBJECT"}`);
     startPushScheduler();
+    startDigestScheduler(prisma);
   });
 }
 
