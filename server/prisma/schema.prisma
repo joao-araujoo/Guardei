@@ -134,6 +134,7 @@ model Video {
   description            String?
   category               String
   reason                 String
+  savedFor               String?
   tags                   String[]
   priority               VideoPriority          @default(baixa)
   status                 VideoStatus            @default(novo)
@@ -156,7 +157,7 @@ model Video {
   sourceText             String?
   origin                 String                 @default("manual")
   reviewCount            Int                    @default(0)
-  schemaVersion          Int                    @default(3)
+  schemaVersion          Int                    @default(4)
   aiEngine               String?
   aiConfidence           Float?
   aiRationale            String?
@@ -171,6 +172,9 @@ model Video {
   reflection             ContentReflection?
   knowledgeCards         KnowledgeCard[]
   applicationCommitments ApplicationCommitment[]
+  snapshot               ContentSnapshot?
+  assets                 SavedAsset[]
+  sharedCollectionItems  SharedCollectionItem[]
 
   @@unique([userId, url])
   @@index([userId])
@@ -178,6 +182,7 @@ model Video {
   @@index([platform])
   @@index([status])
   @@index([priority])
+  @@index([savedFor])
   @@index([createdAt])
 }
 
@@ -199,6 +204,14 @@ model User {
   knowledgeCards         KnowledgeCard[]
   reviewAttempts         ReviewAttempt[]
   applicationCommitments ApplicationCommitment[]
+  snapshots              ContentSnapshot[]
+  savedAssets            SavedAsset[]
+  sharedCollections      SharedCollection[]
+  quickThoughts          QuickThought[]
+  weeklyDigests          WeeklyDigest[]
+  integrationAccounts    IntegrationAccount[]
+  integrationLinks       IntegrationLink[]
+  captureTokens          CaptureToken[]
 }
 
 model UserSettings {
@@ -213,7 +226,14 @@ model UserSettings {
   guardinhoActionsEnabled     Boolean  @default(true)
   recommendationMode          String   @default("smart")
   notificationFrequency       String   @default("balanced")
+  weeklyDigestEnabled         Boolean  @default(true)
+  autoSnapshotEnabled         Boolean  @default(true)
+  contextAssistEnabled        Boolean  @default(true)
+  screenshotOcrEnabled        Boolean  @default(true)
+  extensionCaptureEnabled     Boolean  @default(true)
+  timezone                    String   @default("America/Sao_Paulo")
   lastSmartPushAt             DateTime?
+  lastWeeklyDigestAt          DateTime?
   createdAt                   DateTime @default(now())
   updatedAt                   DateTime @updatedAt
   user                        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -233,6 +253,20 @@ model PushSubscription {
 
   @@index([userId])
   @@index([lastSeenAt])
+}
+
+model CaptureToken {
+  id         String    @id @default(cuid())
+  userId     String
+  name       String    @default("Extensao")
+  tokenHash  String    @unique
+  lastUsedAt DateTime?
+  revokedAt  DateTime?
+  createdAt  DateTime  @default(now())
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([userId, revokedAt])
 }
 
 model VideoRevision {
@@ -471,4 +505,129 @@ model ApplicationCommitment {
   @@index([learningPathId])
   @@index([dueAt])
   @@index([userId, dueAt])
+}
+
+model ContentSnapshot {
+  id           String   @id @default(cuid())
+  userId       String
+  videoId      String   @unique
+  sourceStatus String   @default("metadata_only")
+  contentType  String?
+  finalUrl     String?
+  textContent  String?
+  excerpt      String?
+  contentHash  String?
+  capturedAt   DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  video        Video    @relation(fields: [videoId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([capturedAt])
+}
+
+model SavedAsset {
+  id        String   @id @default(cuid())
+  userId    String
+  videoId   String?
+  kind      String
+  mimeType  String?
+  data      String?
+  ocrText   String?
+  width     Int?
+  height    Int?
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  video     Video?   @relation(fields: [videoId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([videoId])
+  @@index([kind])
+}
+
+model SharedCollection {
+  id          String                 @id @default(cuid())
+  userId      String
+  slug        String                 @unique
+  title       String
+  description String?
+  isPublic    Boolean                @default(true)
+  createdAt   DateTime               @default(now())
+  updatedAt   DateTime               @updatedAt
+  user        User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items       SharedCollectionItem[]
+
+  @@index([userId])
+  @@index([userId, updatedAt])
+}
+
+model SharedCollectionItem {
+  id           String           @id @default(cuid())
+  collectionId String
+  videoId      String
+  position     Int              @default(0)
+  note         String?
+  createdAt    DateTime         @default(now())
+  collection   SharedCollection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  video        Video            @relation(fields: [videoId], references: [id], onDelete: Cascade)
+
+  @@unique([collectionId, videoId])
+  @@index([collectionId, position])
+  @@index([videoId])
+}
+
+model QuickThought {
+  id         String   @id @default(cuid())
+  userId     String
+  text       String
+  contextUrl String?
+  tags       String[] @default([])
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+}
+
+model WeeklyDigest {
+  id         String   @id @default(cuid())
+  userId     String
+  weekKey    String
+  summary    String
+  highlights Json     @default("[]")
+  cleanup    Json     @default("[]")
+  resurfaced Json     @default("[]")
+  createdAt  DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, weekKey])
+  @@index([userId, createdAt])
+}
+
+model IntegrationAccount {
+  id             String   @id @default(cuid())
+  userId         String
+  provider       String
+  externalUserId String
+  displayName    String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, externalUserId])
+  @@index([userId, provider])
+}
+
+model IntegrationLink {
+  id        String    @id @default(cuid())
+  userId    String
+  provider  String
+  code      String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, provider])
+  @@index([expiresAt])
 }
