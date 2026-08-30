@@ -1,1 +1,57 @@
-(async function(){const root=document.getElementById('collection');const slug=new URLSearchParams(location.search).get('slug');if(!slug){root.innerHTML='<div class="shared-status">Esta coleção não tem um identificador válido.</div>';return}try{const response=await fetch(`/api/collections/public/${encodeURIComponent(slug)}`);if(!response.ok)throw new Error('Coleção não encontrada.');const data=await response.json();render(data)}catch(error){root.textContent='';const box=document.createElement('div');box.className='shared-status';box.textContent=error.message||'Não foi possível abrir esta coleção.';root.appendChild(box)}function render(data){root.textContent='';const hero=document.createElement('section');hero.className='shared-hero';const kicker=document.createElement('span');kicker.className='shared-kicker';kicker.textContent=data.curator?`Curadoria de ${data.curator}`:'Curadoria do Guardei';const title=document.createElement('h1');title.textContent=data.title;const desc=document.createElement('p');desc.textContent=data.description||'Uma seleção de coisas que merecem sair do “salvei e esqueci”.';const meta=document.createElement('div');meta.className='shared-meta';const count=document.createElement('span');count.textContent=`${data.items?.length||0} itens`;meta.appendChild(count);const save=document.createElement('button');save.className='shared-primary';save.type='button';save.textContent='Guardar tudo no meu Guardei';save.addEventListener('click',async()=>{save.disabled=true;save.textContent='Guardando…';try{const res=await fetch(`/api/collections/public/${encodeURIComponent(slug)}/import`,{method:'POST',credentials:'include'});if(res.status===401){location.href=`/?from-collection=${encodeURIComponent(slug)}`;return}const result=await res.json();if(!res.ok)throw new Error(result.message||'Não foi possível importar.');save.textContent=`Pronto: ${result.created} novos, ${result.duplicated} já estavam lá`}catch(error){save.disabled=false;save.textContent=error.message||'Tentar de novo'}});hero.append(kicker,title,desc,meta,save);root.appendChild(hero);const grid=document.createElement('section');grid.className='shared-grid';for(const entry of data.items||[]){if(!entry.video)continue;const card=document.createElement('article');card.className='shared-card';const category=document.createElement('span');category.textContent=entry.video.category||'Guardei';const h=document.createElement('h2');h.textContent=entry.video.title||'Item guardado';const p=document.createElement('p');p.textContent=entry.note||entry.video.summary||'Abra a fonte original para ver o conteúdo.';const a=document.createElement('a');a.href=entry.video.url;a.target='_blank';a.rel='noopener noreferrer';a.textContent='Abrir fonte ↗';card.append(category,h,p,a);grid.appendChild(card)}root.appendChild(grid)}})();
+(async function(){
+  const root=document.getElementById('collection');
+  const slug=new URLSearchParams(location.search).get('slug');
+  if(!slug){showStatus('Esta coleção não tem um identificador válido.');return}
+  try{
+    const response=await fetch(`/api/collections/public/${encodeURIComponent(slug)}`);
+    if(!response.ok)throw new Error('Coleção não encontrada.');
+    render(await response.json());
+  }catch(error){showStatus(error.message||'Não foi possível abrir esta coleção.')}
+
+  function showStatus(message){
+    root.textContent='';
+    const box=document.createElement('div');
+    box.className='shared-status';
+    box.textContent=message;
+    root.appendChild(box);
+  }
+
+  function render(data){
+    root.textContent='';
+    const hero=document.createElement('section');hero.className='shared-hero';
+    const kicker=document.createElement('span');kicker.className='shared-kicker';kicker.textContent=data.curator?`Curadoria de ${data.curator}`:'Curadoria do Guardei';
+    const title=document.createElement('h1');title.textContent=data.title;
+    const desc=document.createElement('p');desc.textContent=data.description||'Uma seleção de coisas que merecem sair do “salvei e esqueci”.';
+    const meta=document.createElement('div');meta.className='shared-meta';
+    const count=document.createElement('span');count.textContent=`${data.items?.length||0} itens`;meta.appendChild(count);
+    const save=document.createElement('button');save.className='shared-primary';save.type='button';save.textContent='Guardar tudo no meu Guardei';
+    save.addEventListener('click',async()=>{
+      save.disabled=true;save.textContent='Guardando…';
+      try{
+        const res=await fetch(`/api/collections/public/${encodeURIComponent(slug)}/import`,{method:'POST',credentials:'include'});
+        if(res.status===401){
+          save.disabled=false;
+          save.textContent='Entre no Guardei e clique aqui de novo';
+          const login=document.createElement('a');login.href='/';login.target='_blank';login.rel='noopener';login.className='shared-login';login.textContent='Entrar no Guardei em outra aba';
+          if(!hero.querySelector('[data-login-link]')){login.dataset.loginLink='1';hero.appendChild(login)}
+          return;
+        }
+        const result=await res.json();
+        if(!res.ok)throw new Error(result.message||'Não foi possível importar.');
+        save.textContent=`Pronto: ${result.created} novos, ${result.duplicated} já estavam lá`;
+      }catch(error){save.disabled=false;save.textContent=error.message||'Tentar de novo'}
+    });
+    hero.append(kicker,title,desc,meta,save);root.appendChild(hero);
+    const grid=document.createElement('section');grid.className='shared-grid';
+    for(const entry of data.items||[]){
+      if(!entry.video)continue;
+      const card=document.createElement('article');card.className='shared-card';
+      const category=document.createElement('span');category.textContent=entry.video.category||'Guardei';
+      const h=document.createElement('h2');h.textContent=entry.video.title||'Item guardado';
+      const p=document.createElement('p');p.textContent=entry.note||entry.video.summary||'Abra a fonte original para ver o conteúdo.';
+      const a=document.createElement('a');a.href=entry.video.url;a.target='_blank';a.rel='noopener noreferrer';a.textContent='Abrir fonte ↗';
+      card.append(category,h,p,a);grid.appendChild(card);
+    }
+    root.appendChild(grid);
+  }
+})();
