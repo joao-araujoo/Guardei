@@ -106,8 +106,8 @@ export function createApp() {
   app.use("/api/synthesis", synthesisRoutes);
   app.use("/api/import", importRoutes);
   app.use("/api/collections", collectionRoutes);
-  app.use("/api/integrations", integrationRoutes);
   app.use("/api/integrations/whatsapp", whatsappRoutes);
+  app.use("/api/integrations", integrationRoutes);
   app.use("/api/videos", capsuleRoutes);
   app.use("/api/videos", reflectionRoutes);
   app.use("/api/videos", videoRoutes);
