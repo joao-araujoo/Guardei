@@ -116,15 +116,20 @@ Variáveis mínimas para modo API:
 
 ## Banco e deploy
 
-O histórico de Prisma possui uma baseline idempotente para o schema que existia antes das migrations versionadas. Assim, um banco novo pode executar a cadeia inteira e bancos legados não precisam recriar tabelas base.
+O histórico de Prisma possui uma baseline idempotente para o schema que existia antes das migrations versionadas. Bancos novos conseguem executar a cadeia inteira desde zero.
 
-Em produção use apenas migrations versionadas:
+Em produção use:
 
     cd server
     npm run db:generate
-    npm run db:migrate:deploy
+    npm run db:migrate:production
 
-`prisma db push` fica restrito ao script `db:push:dev` para desenvolvimento. O `render:build` usa instalação reproduzível do backend e `prisma migrate deploy`; não use `db push` como mecanismo de deploy.
+`db:migrate:production` trata dois cenários de forma conservadora:
+
+- se o banco já possui `_prisma_migrations`, executa `prisma migrate deploy` normalmente;
+- se detectar um banco legado criado por `db push` sem histórico, primeiro compara **somente a estrutura** com o schema atual. A adoção das migrations só acontece quando não existe drift; qualquer diferença interrompe o deploy em vez de assumir que o banco está correto.
+
+`prisma db push` fica restrito ao script `db:push:dev` para desenvolvimento. O `render:build` usa instalação reproduzível do backend e o fluxo seguro `db:migrate:production`.
 
 O schema preserva os dados anteriores e inclui captura universal, snapshots, assets, coleções, pensamentos, digest, tokens de captura e o Ciclo de Conhecimento.
 
@@ -144,14 +149,15 @@ O CI principal executa:
 - `npm audit` frontend/backend em nível high;
 - PostgreSQL 16 real em container;
 - `prisma validate`;
-- replay de todas as migrations com `prisma migrate deploy`;
+- replay de todas as migrations em um banco novo;
 - verificação de status das migrations;
+- simulação de um banco legado sem `_prisma_migrations` e validação da adoção segura;
 - geração do Prisma Client;
 - syntax check de todo backend JavaScript;
 - inicialização do backend;
 - testes do produto inteligente;
 - testes de Cápsulas, busca/trilhas e Ciclo de Conhecimento;
-- testes da camada Everywhere e invariantes de PWA/extensão;
+- testes da camada Everywhere, autenticação, PWA e extensão;
 - build de produção do frontend.
 
 ## Arquitetura visual e regras para agentes
