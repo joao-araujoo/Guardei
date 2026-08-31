@@ -62,24 +62,24 @@ test("ordinary HTTP assets are not forced into API no-store policy", () => {
   assert.equal(res.headers.has("strict-transport-security"), false);
 });
 
-test("request origin consistently uses the first trusted proxy values", () => {
+test("request origin uses proxy protocol but never trusts forwarded host", () => {
   const req = makeRequest({
     secure: false,
     forwardedProto: "https, http",
-    forwardedHost: "guardei.example.com, internal-proxy:3333",
-    host: "internal-proxy:3333",
+    forwardedHost: "attacker.example, internal-proxy:3333",
+    host: "guardei.example.com",
   });
 
   assert.equal(getRequestOrigin(req), "https://guardei.example.com");
 });
 
-test("origin verification accepts the proxy-resolved same origin", () => {
+test("origin verification accepts same origin with a proxy protocol chain", () => {
   const req = makeRequest({
     path: "/api/videos/123",
     method: "PATCH",
     forwardedProto: "https, http",
-    forwardedHost: "guardei.example.com, internal-proxy:3333",
-    host: "internal-proxy:3333",
+    forwardedHost: "attacker.example",
+    host: "guardei.example.com",
     origin: "https://guardei.example.com",
   });
   const res = makeResponse();
@@ -91,13 +91,13 @@ test("origin verification accepts the proxy-resolved same origin", () => {
   assert.equal(res.statusCode, 200);
 });
 
-test("origin verification rejects an unrelated origin behind the same proxy", () => {
+test("origin verification rejects an unrelated origin even with matching forwarded host", () => {
   const req = makeRequest({
     path: "/api/videos/123",
     method: "PATCH",
     forwardedProto: "https, http",
-    forwardedHost: "guardei.example.com, internal-proxy:3333",
-    host: "internal-proxy:3333",
+    forwardedHost: "attacker.example",
+    host: "guardei.example.com",
     origin: "https://attacker.example",
   });
   const res = makeResponse();
@@ -108,4 +108,9 @@ test("origin verification rejects an unrelated origin behind the same proxy", ()
   assert.equal(nextCalls, 0);
   assert.equal(res.statusCode, 403);
   assert.equal(res.body?.code, "INVALID_ORIGIN");
+});
+
+test("malformed Host values cannot become a trusted request origin", () => {
+  const req = makeRequest({ forwardedProto: "https", host: "guardei.example.com/path" });
+  assert.equal(getRequestOrigin(req), "");
 });
