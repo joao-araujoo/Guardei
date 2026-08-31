@@ -31,8 +31,10 @@ import { safeLog } from "./security/safeLog.js";
 import { getPushConfig, startPushScheduler } from "./push/webPush.js";
 import { startDigestScheduler } from "./everywhere/digestScheduler.js";
 import { prisma } from "./db/prisma.js";
+import { validateRuntimeConfig } from "./config/runtimeConfig.js";
 
 dotenv.config();
+validateRuntimeConfig();
 
 export function createApp() {
   const app = express();
