@@ -1,0 +1,447 @@
+from pathlib import Path
+
+# Guardinho command semantics: watching/consuming must never mean applying.
+agent_path = Path('src/lib/guardinhoAgent.js')
+agent = agent_path.read_text()
+old_watch = """    await repository.updateVideo(target.id, {
+      status: 'aplicado',
+      watchedAt: now,
+      reviewedAt: now,
+      watchCount: Number(target.watchCount || 0) + 1,
+      watchedSeconds: Number(target.watchedSeconds || 0) || 300
+    });
+    return response(`✅ “${getDisplayTitle(target)}” saiu oficialmente do purgatório do “depois eu vejo”.`, {
+      action: 'mark-watched',
+      mutated: true,
+      video: { ...target, status: 'aplicado', watchedAt: now }
+    });
+"""
+new_watch = """    await repository.updateVideo(target.id, {
+      consumedAt: now,
+      watchedAt: now,
+      watchCount: Number(target.watchCount || 0) + 1,
+      watchedSeconds: Number(target.watchedSeconds || 0) || 300
+    });
+    return response(`✅ “${getDisplayTitle(target)}” foi registrado como consumido. Aplicar continua sendo uma etapa separada.`, {
+      action: 'mark-watched',
+      mutated: true,
+      video: { ...target, consumedAt: now, watchedAt: now }
+    });
+"""
+if old_watch not in agent:
+    raise SystemExit('Guardinho watched block not found')
+agent = agent.replace(old_watch, new_watch)
+agent = agent.replace(
+    "  const active = videos.filter(video => !['arquivado', 'aplicado'].includes(video.status));\n  const watched = videos.filter(video => video.status === 'aplicado' || video.watchedAt);",
+    "  const active = videos.filter(video => video.status !== 'arquivado');\n  const watched = videos.filter(video => video.consumedAt || video.watchedAt);"
+)
+agent_path.write_text(agent)
+
+# ProductShell: complete preferences and keep consumption semantically separate.
+shell_path = Path('src/ProductShell.jsx')
+shell = shell_path.read_text()
+shell = shell.replace(
+    "  const recommendation = useMemo(() => pickSmartRecommendation(videos), [videos]);",
+    "  const recommendation = useMemo(() => settings.recommendationMode === 'smart' ? pickSmartRecommendation(videos) : null, [settings.recommendationMode, videos]);"
+)
+# The nudge action means "I consumed this", not "I reviewed/applied this".
+mark_start = shell.index('  async function markNudgeWatched() {')
+mark_end = shell.index('\n  function snoozeNudge', mark_start)
+mark_block = shell[mark_start:mark_end].replace('        reviewedAt: now,\n', '')
+shell = shell[:mark_start] + mark_block + shell[mark_end:]
+shell = shell.replace(
+    "  async function persistSettings(patch) {",
+    """  async function toggleGuardinhoActions() {
+    const next = !settings.guardinhoActionsEnabled;
+    try {
+      await persistSettings({ guardinhoActionsEnabled: next });
+      flash(next ? 'Ações do Guardinho ativadas.' : 'Ações do Guardinho pausadas.');
+    } catch {
+      flash('Não consegui salvar essa preferência.');
+    }
+  }
+
+  async function updateSmartPreference(key, value) {
+    try {
+      await persistSettings({ [key]: value });
+    } catch {
+      flash('Não consegui salvar essa preferência.');
+    }
+  }
+
+  async function persistSettings(patch) {"""
+)
+settings_start = shell.index('              <section className="smart-settings-row"')
+settings_end = shell.index('\n\n              <section className="smart-quick-actions">', settings_start)
+settings_block = """              <section className="smart-settings-row" aria-label="Automação inteligente">
+                <button type="button" onClick={settings.smartNotificationsEnabled ? disableNotifications : enableNotifications}>
+                  <iconify-icon icon={settings.smartNotificationsEnabled ? 'lucide:bell-ring' : 'lucide:bell'} />
+                  <span><strong>Lembretes</strong><small>{settings.smartNotificationsEnabled ? 'Ativos' : 'Ativar'}</small></span>
+                </button>
+                <button type="button" onClick={toggleClipboardSuggestions}>
+                  <iconify-icon icon="lucide:clipboard" />
+                  <span><strong>Clipboard</strong><small>{settings.clipboardSuggestionsEnabled ? 'Automático' : 'Pausado'}</small></span>
+                </button>
+                <button type="button" onClick={toggleGuardinhoActions}>
+                  <iconify-icon icon={settings.guardinhoActionsEnabled ? 'lucide:wand-sparkles' : 'lucide:pause'} />
+                  <span><strong>Ações</strong><small>{settings.guardinhoActionsEnabled ? 'Ativas' : 'Pausadas'}</small></span>
+                </button>
+                <button type="button" onClick={() => inspectClipboard({ interactive: true })}>
+                  <iconify-icon icon="lucide:clipboard-check" />
+                  <span><strong>Checar agora</strong><small>1 toque</small></span>
+                </button>
+              </section>
+
+              <section className="smart-preference-controls" aria-label="Preferências do Guardinho">
+                <label>
+                  <span>Recomendação</span>
+                  <select value={settings.recommendationMode || 'smart'} onChange={event => updateSmartPreference('recommendationMode', event.target.value)}>
+                    <option value="smart">Automática</option>
+                    <option value="manual">Só quando eu pedir</option>
+                  </select>
+                </label>
+                <label>
+                  <span>Frequência de lembretes</span>
+                  <select value={settings.notificationFrequency || 'balanced'} onChange={event => updateSmartPreference('notificationFrequency', event.target.value)}>
+                    <option value="light">Leve</option>
+                    <option value="balanced">Equilibrada</option>
+                    <option value="frequent">Frequente</option>
+                  </select>
+                </label>
+              </section>"""
+shell = shell[:settings_start] + settings_block + shell[settings_end:]
+shell = shell.replace(
+    "<button type=\"button\" disabled={busy} onClick={() => runCommand(null, 'me recomenda algo')}>",
+    "<button type=\"button\" disabled={busy || !settings.guardinhoActionsEnabled} onClick={() => runCommand(null, 'me recomenda algo')}>"
+)
+shell = shell.replace(
+    "<button type=\"button\" disabled={busy} onClick={() => runCommand(null, 'organiza o inbox')}>",
+    "<button type=\"button\" disabled={busy || !settings.guardinhoActionsEnabled} onClick={() => runCommand(null, 'organiza o inbox')}>"
+)
+shell = shell.replace(
+    "<p className=\"smart-command-hint\">Ações são intencionais e reversíveis quando possível. O Guardinho não apaga itens por comando.</p>",
+    "<p className=\"smart-command-hint\">{settings.guardinhoActionsEnabled ? 'Ações são intencionais e reversíveis quando possível. O Guardinho não apaga itens por comando.' : 'As ações estão pausadas. Reative acima para o Guardinho alterar o acervo.'}</p>"
+)
+shell = shell.replace(
+    "<div><strong>Nada para recomendar ainda</strong><span>Salve alguns links e eu começo a aprender o que merece voltar para você.</span></div>",
+    "<div><strong>{settings.recommendationMode === 'manual' ? 'Recomendação automática pausada' : 'Nada para recomendar ainda'}</strong><span>{settings.recommendationMode === 'manual' ? 'Use “Me recomenda” quando quiser uma escolha sob demanda.' : 'Salve alguns links e eu começo a aprender o que merece voltar para você.'}</span></div>"
+)
+shell_path.write_text(shell)
+
+# App: remove dead Home state, keep PWA install reachable, clean old Guardinho naming.
+app_path = Path('src/App.jsx')
+app = app_path.read_text()
+app = app.replace("  const [recommendation, setRecommendation] = useState(DEFAULT_RECOMMENDATION);", "  const recommendation = DEFAULT_RECOMMENDATION;")
+for line in [
+    "  const inboxVideos = useMemo(() => videos.filter(video => video.status === 'inbox'), [videos]);\n",
+    "  const importantVideos = useMemo(() => videos.filter(video => video.status === 'importante'), [videos]);\n",
+    "  const appliedVideos = useMemo(() => videos.filter(video => video.applicationStatus === 'completed' && video.appliedAt), [videos]);\n",
+]:
+    app = app.replace(line, '')
+dq_start = app.index('  const dailyQueue = useMemo(() => {')
+dq_end = app.index('\n  const reviewQueue = useMemo(() => {', dq_start)
+app = app[:dq_start] + app[dq_end + 1:]
+app = app.replace('pushMascotMessage', 'announceGuardinho')
+app = app.replace('openMascot', 'openGuardinho')
+
+home_call_start = app.index("        {view === 'home' && (\n          <HomeView")
+home_call_end = app.index("\n        )}", home_call_start) + len("\n        )}")
+home_call = """        {view === 'home' && (
+          <HomeView
+            setSelectedId={setSelectedId}
+            knowledgeRefreshKey={knowledgeRefreshKey}
+            onStartReview={startCardReview}
+            onOpenPath={openPathFromToday}
+            onOpenApplications={openApplicationsFromToday}
+            onTodayData={setTodayData}
+            onNotify={showToast}
+          />
+        )}"""
+app = app[:home_call_start] + home_call + app[home_call_end:]
+
+app = app.replace(
+    "            user={user}\n            logout={logout}\n",
+    "            user={user}\n            logout={logout}\n            isInstallable={isInstallable}\n            installApp={installApp}\n"
+)
+app = app.replace(
+    "function SettingsView({ settings, updateSettings, exportJson, importJson, videos, user, logout }) {",
+    "function SettingsView({ settings, updateSettings, exportJson, importJson, videos, user, logout, isInstallable, installApp }) {"
+)
+backup_marker = '      <Panel title="Backup de Dados">'
+install_panel = """      <Panel title="Aplicativo">
+        <div className="install-app-card">
+          <span className="account-avatar"><IconSymbol name="download" /></span>
+          <div>
+            <strong>Guardei no seu dispositivo</strong>
+            <small>{isInstallable ? 'Instale o PWA para abrir mais rápido e usar os recursos compatíveis do navegador.' : 'Se o navegador permitir instalação, a opção aparecerá aqui automaticamente.'}</small>
+          </div>
+          {isInstallable ? <button className="primary-btn fixed-action-btn" type="button" onClick={installApp}>Instalar Guardei</button> : <span className="muted">Instalação indisponível neste momento</span>}
+        </div>
+      </Panel>
+
+"""
+if backup_marker not in app:
+    raise SystemExit('Backup panel marker missing')
+app = app.replace(backup_marker, install_panel + backup_marker, 1)
+app = app.replace('{videos.length} itens salvos localmente', '{videos.length} itens salvos na sua conta')
+app = app.replace(
+    "    await deferredPromptRef.current.userChoice;\n    deferredPromptRef.current = null;\n    setIsInstallable(false);",
+    "    const choice = await deferredPromptRef.current.userChoice;\n    deferredPromptRef.current = null;\n    setIsInstallable(false);\n    showToast(choice?.outcome === 'accepted' ? 'Guardei instalado' : 'Instalação cancelada');"
+)
+app = app.replace(' aria-expanded={moreOpen} aria-haspopup="menu">', ' aria-expanded={moreOpen} aria-controls="mobile-more-menu">')
+app = app.replace('<div className="mobile-more-menu" role="menu">', '<div id="mobile-more-menu" className="mobile-more-menu">')
+app = app.replace(' type="button" role="menuitem" className={active ? \'active\' : \'\'}', ' type="button" className={active ? \'active\' : \'\'}')
+for forbidden in ['setRecommendation', 'dailyQueue', 'inboxVideos', 'importantVideos', 'appliedVideos', 'pushMascotMessage', 'openMascot']:
+    if forbidden in app:
+        raise SystemExit(f'Dead App token remains: {forbidden}')
+app_path.write_text(app)
+
+# Today Hub: connect daily-review target to actual reviews performed today.
+review_path = Path('server/src/reviews/reviewService.js')
+review = review_path.read_text()
+review = review.replace(
+    '  const endOfDay = new Date(now);\n  endOfDay.setHours(23, 59, 59, 999);',
+    '  const startOfDay = new Date(now);\n  startOfDay.setHours(0, 0, 0, 0);\n  const endOfDay = new Date(now);\n  endOfDay.setHours(23, 59, 59, 999);'
+)
+review = review.replace(
+    '  const [decisionItems, dueCards, applications, paths] = await Promise.all([',
+    '  const [decisionItems, dueCards, applications, paths, userSettings, reviewedToday] = await Promise.all(['
+)
+path_query_start = review.index('    prisma.learningPath.findMany({')
+promise_end = review.index('  ]);', path_query_start)
+before_end = review[:promise_end]
+if not before_end.endswith('    }),\n'):
+    raise SystemExit('Unexpected today Promise layout')
+before_end += '    prisma.userSettings.findUnique({ where: { userId }, select: { dailyReviewTarget: true } }),\n    prisma.reviewAttempt.count({ where: { userId, reviewedAt: { gte: startOfDay, lte: endOfDay } } }),\n'
+review = before_end + review[promise_end:]
+review = review.replace(
+    '      activePaths: pathActions.length,',
+    '      activePaths: pathActions.length,\n      reviewedToday,\n      dailyReviewTarget: userSettings?.dailyReviewTarget || 3,'
+)
+review_path.write_text(review)
+
+today_path = Path('src/features/today/TodayHub.jsx')
+today = today_path.read_text()
+today = today.replace(
+    "  const counts = data?.counts || {};\n  const action = data?.nextAction || {};",
+    "  const counts = data?.counts || {};\n  const action = data?.nextAction || {};\n  const reviewedToday = Number(counts.reviewedToday || 0);\n  const dailyTarget = Math.max(1, Number(counts.dailyReviewTarget || 3));"
+)
+header_start = today.index('      <header className="today-hub-head">')
+header_end = today.index('\n\n      <article className=', header_start)
+header = """      <header className="today-hub-head">
+        <div><span className="eyebrow">Ciclo de Conhecimento</span><h2 id="today-hub-title">Hoje</h2><p>Uma visão curta do que pode ajudar você a decidir, lembrar e aplicar — sem criar obrigação artificial.</p></div>
+        <div className="today-hub-badges">
+          <span className="review-badge" aria-label={`${reviewedToday} de ${dailyTarget} revisões da meta diária concluídas`}>{reviewedToday}/{dailyTarget} revisões hoje</span>
+          {!!counts.dueCards && <span className="review-badge" aria-label={`${counts.dueCards} cartões pendentes`}>{counts.dueCards} para recordar</span>}
+        </div>
+      </header>"""
+today = today[:header_start] + header + today[header_end:]
+today_path.write_text(today)
+
+backend_test_path = Path('server/test/knowledge-cycle.test.js')
+backend_test = backend_test_path.read_text()
+backend_test = backend_test.replace(
+    '  assert.equal(data.counts.activePaths, 1);\n  assert.ok(data.nextAction.title);',
+    '  assert.equal(data.counts.activePaths, 1);\n  assert.equal(data.counts.reviewedToday, 2);\n  assert.equal(data.counts.dailyReviewTarget, 3);\n  assert.ok(data.nextAction.title);'
+)
+backend_test = backend_test.replace(
+    '    learningPath: { findMany: async () => [{ id: "p1", title: "React", objective: "Aprender", progress: 0, items: [{ id: "pi1", status: "pending", section: "Base", estimatedMinutes: 5, video }] }] },\n  };',
+    '    learningPath: { findMany: async () => [{ id: "p1", title: "React", objective: "Aprender", progress: 0, items: [{ id: "pi1", status: "pending", section: "Base", estimatedMinutes: 5, video }] }] },\n    userSettings: { findUnique: async () => ({ dailyReviewTarget: 3 }) },\n    reviewAttempt: { count: async () => 2 },\n  };'
+)
+backend_test_path.write_text(backend_test)
+
+# Existing Guardinho test must enforce corrected invariant.
+smart_test_path = Path('tests/smartProduct.test.mjs')
+smart_test = smart_test_path.read_text()
+smart_test = smart_test.replace(
+    "  assert.equal(calls[0].patch.status, 'aplicado');",
+    "  assert.equal(calls[0].patch.status, undefined);\n  assert.equal(calls[0].patch.applicationStatus, undefined);\n  assert.ok(calls[0].patch.consumedAt);\n  assert.ok(calls[0].patch.watchedAt);"
+)
+smart_test_path.write_text(smart_test)
+
+# Everywhere: complete collection/token management and dialog accessibility.
+everywhere_path = Path('src/features/everywhere/EverywhereLayer.jsx')
+everywhere = everywhere_path.read_text()
+everywhere = everywhere.replace(
+    "  const [intentTarget, setIntentTarget] = useState(null);\n  const dirtyRef = useRef(false);",
+    "  const [intentTarget, setIntentTarget] = useState(null);\n  const [confirmCollectionId, setConfirmCollectionId] = useState(null);\n  const [confirmTokenId, setConfirmTokenId] = useState(null);\n  const dirtyRef = useRef(false);\n  const launcherRef = useRef(null);\n  const panelRef = useRef(null);"
+)
+focus_marker = """  useEffect(() => {
+    if (!open || !available) return;
+    loadHub();
+  }, [open, available]);"""
+focus_effect = """  useEffect(() => {
+    if (!open || !available) return;
+    loadHub();
+  }, [open, available]);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const previousOverflow = document.body.style.overflow;
+    const previousFocus = document.activeElement;
+    const selector = 'button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])';
+    const handleTab = event => {
+      if (event.key !== 'Tab') return;
+      const focusable = panelRef.current?.querySelectorAll(selector);
+      if (!focusable?.length) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+    };
+    document.body.style.overflow = 'hidden';
+    window.addEventListener('keydown', handleTab);
+    window.requestAnimationFrame(() => panelRef.current?.querySelector(selector)?.focus());
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener('keydown', handleTab);
+      if (previousFocus instanceof HTMLElement && document.contains(previousFocus)) previousFocus.focus();
+      else launcherRef.current?.focus?.();
+    };
+  }, [open]);"""
+if focus_marker not in everywhere:
+    raise SystemExit('Everywhere load effect marker missing')
+everywhere = everywhere.replace(focus_marker, focus_effect)
+everywhere = everywhere.replace(
+    "  async function toggleSetting(key) {",
+    """  async function deleteCollection(id) {
+    setBusy(true);
+    try {
+      await everywhereService.removeCollection(id);
+      setCollections(items => items.filter(item => item.id !== id));
+      setConfirmCollectionId(null);
+      flash('Coleção removida.');
+    } catch (error) {
+      flash(error.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function revokeToken(id) {
+    setBusy(true);
+    try {
+      await everywhereService.revokeCaptureToken(id);
+      setTokens(items => items.map(item => item.id === id ? { ...item, revokedAt: new Date().toISOString() } : item));
+      setConfirmTokenId(null);
+      flash('Token revogado. A extensão que usava esse token perdeu o acesso.');
+    } catch (error) {
+      flash(error.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function toggleSetting(key) {"""
+)
+everywhere = everywhere.replace(
+    '<button className="everywhere-launcher" type="button"',
+    '<button className="everywhere-launcher" ref={launcherRef} type="button"'
+)
+everywhere = everywhere.replace(
+    '<section className="everywhere-panel" role="dialog" aria-modal="true" aria-labelledby="everywhere-title">',
+    '<section className="everywhere-panel" ref={panelRef} role="dialog" aria-modal="true" aria-labelledby="everywhere-title">'
+)
+collection_start = everywhere.index('{collections.length ? <div className="collection-list">')
+collection_end = everywhere.index('</section>', collection_start)
+collection_replacement = """{collections.length ? <div className="collection-list">{collections.slice(0, 6).map(item => {
+                      const shareUrl = `${window.location.origin}/shared.html?slug=${encodeURIComponent(item.slug)}`;
+                      const confirming = confirmCollectionId === item.id;
+                      return <div key={item.id}><span><strong>{item.title}</strong><small>{item.itemCount ?? item.items?.length ?? 0} itens</small></span><div className="collection-actions"><button type="button" onClick={() => copyText(shareUrl)}><iconify-icon icon="lucide:copy" /> Copiar</button>{confirming ? <><button type="button" className="danger-action" disabled={busy} onClick={() => deleteCollection(item.id)}>Confirmar exclusão</button><button type="button" onClick={() => setConfirmCollectionId(null)}>Cancelar</button></> : <button type="button" className="danger-action" onClick={() => setConfirmCollectionId(item.id)} aria-label={`Excluir coleção ${item.title}`}><iconify-icon icon="lucide:trash-2" /> Excluir</button>}</div></div>;
+                    })}</div> : null}
+                    """
+everywhere = everywhere[:collection_start] + collection_replacement + everywhere[collection_end:]
+
+token_start = everywhere.index('<button className="everywhere-secondary" type="button" onClick={createToken}')
+token_end = everywhere.index('</section>', token_start)
+token_replacement = """<button className="everywhere-secondary" type="button" onClick={createToken} disabled={busy || settings.extensionCaptureEnabled === false}>Gerar token da extensão</button>
+                    {lastToken ? <div className="secret-box"><code>{lastToken}</code><button type="button" onClick={() => copyText(lastToken)}>Copiar</button></div> : null}
+                    <div className="token-management-list">
+                      {tokens.filter(item => !item.revokedAt).length ? tokens.filter(item => !item.revokedAt).map(item => {
+                        const confirming = confirmTokenId === item.id;
+                        return <div key={item.id}><span><strong>{item.name}</strong><small>{item.lastUsedAt ? `Usado em ${new Date(item.lastUsedAt).toLocaleDateString('pt-BR')}` : 'Ainda não usado'}</small></span>{confirming ? <div className="token-actions"><button type="button" className="danger-action" disabled={busy} onClick={() => revokeToken(item.id)}>Confirmar revogação</button><button type="button" onClick={() => setConfirmTokenId(null)}>Cancelar</button></div> : <button type="button" className="danger-action" onClick={() => setConfirmTokenId(item.id)} aria-label={`Revogar token ${item.name}`}>Revogar</button>}</div>;
+                      }) : <small className="everywhere-muted">Nenhum token ativo.</small>}
+                    </div>
+                    """
+everywhere = everywhere[:token_start] + token_replacement + everywhere[token_end:]
+everywhere = everywhere.replace(
+    "                      <Preference label=\"Screenshot pesquisável\" text=\"Usa visão/OCR quando disponível.\" checked={settings.screenshotOcrEnabled !== false} onChange={() => toggleSetting('screenshotOcrEnabled')} />",
+    "                      <Preference label=\"Screenshot pesquisável\" text=\"Usa visão/OCR quando disponível.\" checked={settings.screenshotOcrEnabled !== false} onChange={() => toggleSetting('screenshotOcrEnabled')} />\n                      <Preference label=\"Captura pela extensão\" text=\"Pausa ou libera todos os tokens da extensão sem apagar os tokens.\" checked={settings.extensionCaptureEnabled !== false} onChange={() => toggleSetting('extensionCaptureEnabled')} />"
+)
+everywhere_path.write_text(everywhere)
+
+# CSS additions use the documented token system only.
+smart_css_path = Path('src/smart-layer.css')
+smart_css = smart_css_path.read_text()
+smart_css = smart_css.replace('grid-template-columns: repeat(3, 1fr);', 'grid-template-columns: repeat(4, 1fr);', 1)
+preference_css = """
+
+.smart-preference-controls {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 2px solid var(--ink);
+  border-radius: var(--radius-lg);
+  background: var(--paper);
+  box-shadow: var(--shadow-sm);
+}
+.smart-preference-controls label { display: grid; gap: var(--space-1); color: var(--muted); font-size: 10px; font-weight: 800; }
+.smart-preference-controls select { width: 100%; min-height: 40px; border: 1px solid var(--line-2); background: var(--paper-2); color: var(--ink); padding: 0 var(--space-2); font: inherit; }
+"""
+media_marker = '\n@media (max-width: 720px) {'
+smart_css = smart_css.replace(media_marker, preference_css + media_marker, 1)
+smart_css = smart_css.replace('  .smart-settings-row { grid-template-columns: 1fr; }', '  .smart-settings-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }\n  .smart-preference-controls { grid-template-columns: 1fr; }')
+smart_css_path.write_text(smart_css)
+
+completion_path = Path('src/product-completion.css')
+completion = completion_path.read_text().replace('background: var(--yellow-soft, #ffe8a8);', 'background: var(--ds-surface-soft);')
+completion += """
+
+.today-hub-badges { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--space-2); }
+.install-app-card { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: var(--space-3); }
+.install-app-card > div { display: grid; gap: var(--space-1); }
+.install-app-card small { color: var(--ds-text-muted); line-height: 1.45; }
+.collection-actions, .token-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--space-1); }
+.collection-actions .danger-action, .token-management-list .danger-action { color: var(--ds-danger); }
+.token-management-list { display: grid; gap: var(--space-2); margin-top: var(--space-3); }
+.token-management-list > div { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); padding: var(--space-2) 0; border-top: 1px solid var(--ds-border); }
+.token-management-list > div > span { display: grid; min-width: 0; gap: var(--space-1); }
+.token-management-list small { color: var(--ds-text-muted); }
+
+@media (max-width: 720px) {
+  .today-hub-badges { justify-content: flex-start; }
+  .install-app-card { grid-template-columns: auto minmax(0, 1fr); }
+  .install-app-card > .primary-btn, .install-app-card > .muted { grid-column: 1 / -1; }
+  .token-management-list > div { align-items: flex-start; flex-direction: column; }
+  .collection-actions, .token-actions { width: 100%; justify-content: flex-start; }
+}
+"""
+completion_path.write_text(completion)
+
+# Strengthen product invariants.
+integrity_path = Path('tests/productIntegrity.test.mjs')
+integrity = integrity_path.read_text()
+integrity += """
+
+test('Guardinho command consumption never becomes application', async () => {
+  const agent = await read('src/lib/guardinhoAgent.js');
+  const start = agent.indexOf("if (hasAny(normalized, ['visto'");
+  const end = agent.indexOf("if (hasAny(normalized, ['arquiva'", start);
+  assert.ok(start >= 0 && end > start);
+  const block = agent.slice(start, end);
+  assert.match(block, /consumedAt:\s*now/);
+  assert.doesNotMatch(block, /status:\s*['\"]aplicado['\"]/);
+  assert.doesNotMatch(block, /applicationStatus/);
+});
+
+test('PWA install and extension security controls stay reachable', async () => {
+  const app = await read('src/App.jsx');
+  const everywhere = await read('src/features/everywhere/EverywhereLayer.jsx');
+  assert.match(app, /Instalar Guardei/);
+  assert.match(everywhere, /revokeCaptureToken/);
+  assert.match(everywhere, /removeCollection/);
+  assert.match(everywhere, /extensionCaptureEnabled/);
+});
+"""
+integrity_path.write_text(integrity)
