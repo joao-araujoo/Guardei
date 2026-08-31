@@ -6,10 +6,10 @@ const TOKEN_TTL_SECONDS = 60 * 60 * 24 * 7;
 
 export const AUTH_COOKIE = "guardei_session";
 
-export function getAuthSecret() {
-  const secret = process.env.AUTH_SECRET || process.env.JWT_SECRET;
+export function getAuthSecret(env = process.env) {
+  const secret = env.AUTH_SECRET || env.JWT_SECRET;
   if (secret && secret.length >= 32) return secret;
-  if (process.env.NODE_ENV === "production") {
+  if (env.NODE_ENV === "production") {
     throw new Error("AUTH_SECRET precisa ter pelo menos 32 caracteres em producao.");
   }
   return "dev-only-change-this-auth-secret-32chars";
