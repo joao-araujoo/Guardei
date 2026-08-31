@@ -1,20 +1,24 @@
 {
-  "name": "tiktok-vault-auto",
+  "name": "guardei",
   "private": true,
-  "version": "2.0.0",
+  "version": "3.0.0",
   "type": "module",
+  "engines": {
+    "node": ">=20.19.0"
+  },
   "scripts": {
     "dev": "vite --host 0.0.0.0",
     "build": "vite build",
     "test": "node --test tests/*.test.mjs",
     "preview": "vite preview --host 0.0.0.0",
-    "render:build": "npm run build && npm install --prefix server && npm --prefix server run db:generate && npm --prefix server run db:push",
+    "render:build": "npm run build && npm ci --prefix server --no-audit --no-fund && npm --prefix server run db:generate && npm --prefix server run db:migrate:deploy",
     "start": "npm --prefix server start"
   },
   "dependencies": {
-    "@vitejs/plugin-react": "latest",
-    "react": "latest",
-    "react-dom": "latest",
-    "vite": "latest"
+    "react": "19.2.6",
+    "react-dom": "19.2.6"
+  },
+  "devDependencies": {
+    "vite": "8.2.2"
   }
 }
