@@ -39,7 +39,6 @@ test('achievement tones use known token names', async () => {
   assert.doesNotMatch(app, /greeFn/);
 });
 
-
 test('Guardinho command consumption never becomes application', async () => {
   const agent = await read('src/lib/guardinhoAgent.js');
   const start = agent.indexOf("if (hasAny(normalized, ['visto'");
@@ -47,6 +46,26 @@ test('Guardinho command consumption never becomes application', async () => {
   assert.ok(start >= 0 && end > start);
   const block = agent.slice(start, end);
   assert.match(block, /consumedAt:\s*now/);
+  assert.doesNotMatch(block, /status:\s*['"]aplicado['"]/);
+  assert.doesNotMatch(block, /applicationStatus/);
+});
+
+test('service worker never persists authenticated API GET responses', async () => {
+  const sw = await read('public/sw.js');
+  const apiGuard = sw.indexOf("requestUrl.pathname.startsWith('/api/')");
+  const cacheResponse = sw.indexOf('event.respondWith(', apiGuard);
+  assert.ok(apiGuard >= 0, 'service worker must explicitly bypass /api/');
+  assert.ok(cacheResponse > apiGuard, 'API bypass must run before cache respondWith');
+});
+
+test('service worker notification seen action records consumption, not application', async () => {
+  const sw = await read('public/sw.js');
+  const start = sw.indexOf('async function markVideoConsumedAndOpen');
+  const end = sw.indexOf('\nasync function focusOrOpenApp', start);
+  assert.ok(start >= 0 && end > start, 'markVideoConsumedAndOpen must exist');
+  const block = sw.slice(start, end);
+  assert.match(block, /consumedAt:\s*now/);
+  assert.match(block, /watchedAt:\s*now/);
   assert.doesNotMatch(block, /status:\s*['"]aplicado['"]/);
   assert.doesNotMatch(block, /applicationStatus/);
 });
