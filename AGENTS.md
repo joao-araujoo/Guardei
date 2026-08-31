@@ -40,7 +40,7 @@ Obrigatório:
 - reutilizar sombras do sistema;
 - reutilizar cores semânticas;
 - manter espaçamento na escala definida em `DESIGN_SYSTEM.md`;
-- usar Lucide/Iconify para ícones de interface.
+- usar os ícones Lucide do runtime local do projeto para ícones de interface.
 
 Evite:
 
@@ -231,3 +231,11 @@ Se uma nova tela parece ter vindo de outro produto, a implementação ainda não
 - `applicationStatus`, `appliedAt` e compromissos de aplicação significam que o usuário realmente aplicou algo.
 - Nunca defina `status: aplicado` apenas porque um vídeo/link foi visto, aberto, revisado ou marcado como visto.
 - Toda nova ação do Guardinho, PWA, Web Push ou integração que altere consumo/aplicação precisa de teste de regressão para essa distinção.
+
+## 15. Ícones locais e independência de runtime
+
+- Não adicione CDN, `<script>` remoto ou chamada à API Iconify para renderizar ícones no navegador.
+- A tag existente `<iconify-icon icon="lucide:...">` é atendida pelo runtime local `src/lib/localIconify.js`.
+- Ao introduzir um novo `lucide:*`, execute `node scripts/generate-local-icons.mjs` e versione o catálogo gerado.
+- `tests/localIcons.test.mjs` deve continuar garantindo que todo ícone referenciado tenha representação local e que o frontend não dependa de rede para desenhá-lo.
+- Não edite manualmente `src/lib/localIconify.js`; altere os usos de ícones ou o gerador e regenere.
