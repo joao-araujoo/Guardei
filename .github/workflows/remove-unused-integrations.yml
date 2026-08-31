@@ -47,8 +47,9 @@ jobs:
 
       - name: Validate Prisma schema and client
         run: |
-          npx --prefix server prisma validate
-          npm --prefix server run db:generate
+          cd server
+          npx prisma validate
+          npm run db:generate
 
       - name: Check backend syntax
         run: find server/src server/scripts -name '*.js' -print0 | xargs -0 -n1 node --check
