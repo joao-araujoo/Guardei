@@ -51,9 +51,11 @@ export function verifyRequestOrigin(req, res, next) {
 
 export function getRequestOrigin(req) {
   const protocol = requestProtocol(req);
-  const forwardedHost = firstHeaderValue(req.get("x-forwarded-host"));
-  const host = forwardedHost || firstHeaderValue(req.get("host"));
-  if (!host || /[\\/\s]/.test(host)) return "";
+  // Host is the authority used by the actual HTTP request. Do not use
+  // X-Forwarded-Host for a security decision unless a deployment explicitly
+  // establishes and validates that trust boundary outside the application.
+  const host = firstHeaderValue(req.get("host"));
+  if (!host || /[\\/\s?#@]/.test(host)) return "";
 
   try {
     return new URL(`${protocol}://${host}`).origin;
