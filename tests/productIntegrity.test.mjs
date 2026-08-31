@@ -29,7 +29,7 @@ test('production manifests are pinned and deploy through safe migrations', async
   assert.equal(backend.scripts?.['db:migrate:production'], 'node scripts/migrate-production.js');
 });
 
-test('production migration adoption refuses unverified legacy drift', async () => {
+test('production migration adoption refuses unverified legacy drift and recognizes empty history', async () => {
   const script = await read('server/scripts/migrate-production.js');
   assert.match(script, /migrate["']?,\s*["']diff/);
   assert.match(script, /allowDiffExit:\s*true/);
@@ -37,6 +37,9 @@ test('production migration adoption refuses unverified legacy drift', async () =
   assert.match(script, /adocao automatica foi interrompida/);
   assert.match(script, /migrate["']?,\s*["']resolve/);
   assert.match(script, /migrate["']?,\s*["']deploy/);
+  assert.match(script, /COUNT\(\*\)::int AS ["']count["']/);
+  assert.match(script, /migrationRows > 0/);
+  assert.match(script, /tabela _prisma_migrations vazia/);
 });
 
 test('authentication routes rate-limit attempts and bound expensive password input', async () => {
