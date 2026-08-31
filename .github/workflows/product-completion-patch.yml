@@ -73,23 +73,9 @@ jobs:
           """
           app = app[:start] + replacement + app[end:]
 
-          floating_render = """      <FloatingMascot
-                open={mascotOpen}
-                setOpen={setMascotOpen}
-                bubble={mascotBubble}
-                messages={mascotMessages}
-                input={mascotInput}
-                setInput={setMascotInput}
-                onSubmit={sendMascotMessage}
-                loading={mascotLoading}
-                randomVideo={randomVideo}
-                onDismissBubble={() => setMascotBubble('')}
-              />
-
-          """
-          if floating_render not in app:
-              raise SystemExit('FloatingMascot render block not found')
-          app = app.replace(floating_render, '')
+          render_start = app.index('      <FloatingMascot')
+          render_end = app.index('\n      <div className={`toast', render_start)
+          app = app[:render_start] + app[render_end:]
 
           start = app.index('function HomeView(')
           end = app.index('\nfunction AddView(', start)
