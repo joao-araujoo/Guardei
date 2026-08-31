@@ -1,0 +1,341 @@
+name: Product completion patch
+
+on:
+  push:
+    branches:
+      - feat/product-completion-sprint
+
+permissions:
+  contents: write
+
+jobs:
+  patch-and-validate:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      NODE_ENV: test
+      DATABASE_URL: postgresql://guardei:guardei@localhost:5432/guardei
+      DATABASE_DIRECT_URL: postgresql://guardei:guardei@localhost:5432/guardei
+      AUTH_SECRET: product-completion-ci-secret-with-more-than-32-characters
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/product-completion-sprint
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            server/package-lock.json
+
+      - name: Apply product completion patch
+        shell: bash
+        run: |
+          python <<'PY'
+          from pathlib import Path
+          import json
+
+          app_path = Path('src/App.jsx')
+          app = app_path.read_text()
+
+          app = app.replace("import guardeiMascot from './assets/mascot/guardei-mascot.png';\n", '')
+          app = app.replace("tone: 'greeFn'", "tone: 'green'")
+
+          for line in [
+              "  const [mascotInput, setMascotInput] = useState('');\n",
+              "  const [mascotMessages, setMascotMessages] = useState([\n    { role: 'assistant', text: 'Eu sou o Guardinho. Me chama quando quiser escolher o que ver, fugir da procrastinação ou entender seus padrões de consumo.' }\n  ]);\n",
+              "  const [mascotOpen, setMascotOpen] = useState(false);\n",
+              "  const [mascotBubble, setMascotBubble] = useState('Quer que eu escolha algo rápido para você revisar?');\n",
+              "  const [mascotLoading, setMascotLoading] = useState(false);\n",
+          ]:
+              app = app.replace(line, '')
+
+          app = app.replace(
+              "            onTalk={() => { setMascotInput(`O que eu deveria fazer agora na trilha ${selectedPath.title}?`); setMascotOpen(true); }}",
+              "            onTalk={() => window.dispatchEvent(new CustomEvent('guardei:open-guardinho', { detail: { command: `O que eu deveria fazer agora na trilha ${selectedPath.title}?` } }))}"
+          )
+          app = app.replace(
+              "<DashboardView videos={videos} stats={achievementStats} setSelectedId={setSelectedId} openMascot={() => setMascotOpen(true)} knowledgeRefreshKey={knowledgeRefreshKey} onMetrics={setKnowledgeMetrics} onNotify={showToast} />",
+              "<DashboardView videos={videos} stats={achievementStats} setSelectedId={setSelectedId} openMascot={() => window.dispatchEvent(new CustomEvent('guardei:open-guardinho'))} knowledgeRefreshKey={knowledgeRefreshKey} onMetrics={setKnowledgeMetrics} onNotify={showToast} />"
+          )
+
+          start = app.index('  function pushMascotMessage(text) {')
+          end = app.index('\n  function openVideo(video) {', start)
+          replacement = """  function pushMascotMessage(text) {
+            window.dispatchEvent(new CustomEvent('guardei:open-guardinho', {
+              detail: { assistantMessage: text }
+            }));
+          }
+          """
+          app = app[:start] + replacement + app[end:]
+
+          floating_render = """      <FloatingMascot
+                open={mascotOpen}
+                setOpen={setMascotOpen}
+                bubble={mascotBubble}
+                messages={mascotMessages}
+                input={mascotInput}
+                setInput={setMascotInput}
+                onSubmit={sendMascotMessage}
+                loading={mascotLoading}
+                randomVideo={randomVideo}
+                onDismissBubble={() => setMascotBubble('')}
+              />
+
+          """
+          if floating_render not in app:
+              raise SystemExit('FloatingMascot render block not found')
+          app = app.replace(floating_render, '')
+
+          start = app.index('function HomeView(')
+          end = app.index('\nfunction AddView(', start)
+          home = """function HomeView({ setSelectedId, knowledgeRefreshKey, onStartReview, onOpenPath, onOpenApplications, onTodayData, onNotify }) {
+            return (
+              <section className="view-stack home-today-only">
+                <TodayHub
+                  refreshKey={knowledgeRefreshKey}
+                  onStartReview={onStartReview}
+                  onOpenVideo={setSelectedId}
+                  onOpenPath={onOpenPath}
+                  onOpenApplications={onOpenApplications}
+                  onNotify={onNotify}
+                  onData={onTodayData}
+                />
+              </section>
+            );
+          }
+          """
+          app = app[:start] + home + app[end:]
+
+          start = app.index('function FloatingMascot(')
+          end = app.index('\nfunction SettingsView(', start)
+          app = app[:start] + app[end + 1:]
+
+          start = app.index('function MobileDock(')
+          end = app.index('\nfunction buildWatchStats(', start)
+          mobile = """function MobileDock({ view, setView }) {
+            const [moreOpen, setMoreOpen] = useState(false);
+            const primaryItems = [
+              ['home', 'Home', 'home'],
+              ['add', 'Guardar', 'plus'],
+              ['review', 'Rever', 'repeat'],
+              ['library', 'Acervo', 'book']
+            ];
+            const secondaryItems = [
+              ['paths', 'Trilhas', 'route'],
+              ['map', 'Mapa', 'map'],
+              ['dashboard', 'Dados', 'chart'],
+              ['achievements', 'Troféus', 'trophy'],
+              ['settings', 'Configurações', 'settings']
+            ];
+            const secondaryActive = secondaryItems.some(([id]) => view === id || (id === 'paths' && view === 'path-details'));
+            const navigate = id => {
+              setView(id);
+              setMoreOpen(false);
+            };
+
+            return (
+              <nav className="mobile-dock" aria-label="Navegação principal" onKeyDown={event => event.key === 'Escape' && setMoreOpen(false)}>
+                {primaryItems.map(([id, label, icon]) => (
+                  <button key={id} className={view === id ? 'active' : ''} onClick={() => navigate(id)} aria-current={view === id ? 'page' : undefined}>
+                    <IconSymbol name={icon} />
+                    <small>{label}</small>
+                  </button>
+                ))}
+                <div className="mobile-dock-more" onBlur={event => {
+                  if (!event.currentTarget.contains(event.relatedTarget)) setMoreOpen(false);
+                }}>
+                  <button type="button" className={secondaryActive ? 'active' : ''} onClick={() => setMoreOpen(value => !value)} aria-expanded={moreOpen} aria-haspopup="menu">
+                    <IconSymbol name="menu" />
+                    <small>Mais</small>
+                  </button>
+                  {moreOpen && (
+                    <div className="mobile-more-menu" role="menu">
+                      {secondaryItems.map(([id, label, icon]) => {
+                        const active = view === id || (id === 'paths' && view === 'path-details');
+                        return (
+                          <button key={id} type="button" role="menuitem" className={active ? 'active' : ''} onClick={() => navigate(id)}>
+                            <IconSymbol name={icon} />
+                            <span>{label}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </nav>
+            );
+          }
+          """
+          app = app[:start] + mobile + app[end:]
+
+          forbidden = ['FloatingMascot', 'mascotOpen', 'setMascotOpen', 'mascotInput', 'setMascotInput', 'mascotMessages', 'mascotBubble', 'mascotLoading', 'greeFn']
+          leftovers = [token for token in forbidden if token in app]
+          if leftovers:
+              raise SystemExit(f'Legacy App tokens remain: {leftovers}')
+          app_path.write_text(app)
+
+          shell_path = Path('src/ProductShell.jsx')
+          shell = shell_path.read_text()
+          shell = shell.replace(
+              "  const noticeTimerRef = useRef(null);\n",
+              "  const noticeTimerRef = useRef(null);\n  const triggerRef = useRef(null);\n  const panelRef = useRef(null);\n"
+          )
+
+          start = shell.index("  useEffect(() => {\n    const handleLegacyGuardinhoIntent")
+          end = shell.index("\n  useEffect(() => {\n    if (!panelOpen)", start)
+          bridge = """  useEffect(() => {
+            const handleOpenGuardinho = event => {
+              const detail = event?.detail || {};
+              if (detail.assistantMessage) {
+                setMessages(items => [...items, { role: 'assistant', text: String(detail.assistantMessage) }].slice(-12));
+              }
+              if (detail.command) setCommand(String(detail.command));
+              setPanelOpen(true);
+            };
+
+            window.addEventListener('guardei:open-guardinho', handleOpenGuardinho);
+            return () => window.removeEventListener('guardei:open-guardinho', handleOpenGuardinho);
+          }, []);
+          """
+          shell = shell[:start] + bridge + shell[end:]
+
+          start = shell.index("  useEffect(() => {\n    if (!panelOpen)")
+          end = shell.index('\n  async function inspectClipboard', start)
+          focus_effect = """  useEffect(() => {
+            if (!panelOpen) return undefined;
+
+            const previousOverflow = document.body.style.overflow;
+            const previousFocus = document.activeElement;
+            const focusableSelector = 'button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])';
+            const handleKeyDown = event => {
+              if (event.key === 'Escape') {
+                event.preventDefault();
+                setPanelOpen(false);
+                return;
+              }
+              if (event.key !== 'Tab') return;
+              const focusable = panelRef.current?.querySelectorAll(focusableSelector);
+              if (!focusable?.length) return;
+              const first = focusable[0];
+              const last = focusable[focusable.length - 1];
+              if (event.shiftKey && document.activeElement === first) {
+                event.preventDefault();
+                last.focus();
+              } else if (!event.shiftKey && document.activeElement === last) {
+                event.preventDefault();
+                first.focus();
+              }
+            };
+
+            document.body.style.overflow = 'hidden';
+            window.addEventListener('keydown', handleKeyDown);
+            window.requestAnimationFrame(() => panelRef.current?.querySelector(focusableSelector)?.focus());
+
+            return () => {
+              document.body.style.overflow = previousOverflow;
+              window.removeEventListener('keydown', handleKeyDown);
+              if (previousFocus instanceof HTMLElement && document.contains(previousFocus)) previousFocus.focus();
+              else triggerRef.current?.focus?.();
+            };
+          }, [panelOpen]);
+          """
+          shell = shell[:start] + focus_effect + shell[end:]
+
+          shell = shell.replace(
+              "        status: 'aplicado',\n        watchedAt: now,",
+              "        consumedAt: now,\n        watchedAt: now,"
+          )
+          shell = shell.replace(
+              '        className="smart-guardinho-trigger"\n        type="button"',
+              '        className="smart-guardinho-trigger"\n        ref={triggerRef}\n        type="button"'
+          )
+          shell = shell.replace(
+              '<aside className="smart-panel" role="dialog" aria-modal="true" aria-labelledby="guardinho-panel-title">',
+              '<aside className="smart-panel" ref={panelRef} role="dialog" aria-modal="true" aria-labelledby="guardinho-panel-title">'
+          )
+          if "status: 'aplicado'" in shell[shell.index('async function markNudgeWatched'):shell.index('function snoozeNudge')]:
+              raise SystemExit('Nudge still marks content as applied')
+          if 'handleLegacyGuardinhoIntent' in shell:
+              raise SystemExit('Legacy DOM bridge still present')
+          shell_path.write_text(shell)
+
+          design_path = Path('src/design-system.css')
+          design = design_path.read_text()
+          legacy_css = """/* The existing mascot remains the visible brand launcher. The smart button is
+             only the integration target until the legacy launcher is fully refactored. */
+          .smart-guardinho-trigger {
+            display: none !important;
+          }
+          """
+          replacement_css = """/* Guardinho has one launcher and one assistive surface across desktop and mobile. */
+          .smart-guardinho-trigger {
+            display: flex;
+          }
+          """
+          if legacy_css not in design:
+              raise SystemExit('Legacy smart trigger CSS block not found')
+          design_path.write_text(design.replace(legacy_css, replacement_css))
+
+          main_path = Path('src/main.jsx')
+          main = main_path.read_text()
+          main = main.replace("import App from './App.jsx';\n", "import App from './App.jsx';\nimport AppErrorBoundary from './AppErrorBoundary.jsx';\n")
+          main = main.replace("import './home-simplify.css';\n", "import './product-completion.css';\n")
+          main = main.replace(
+              "  <React.StrictMode>\n    <ExperienceRoot />\n  </React.StrictMode>",
+              "  <React.StrictMode>\n    <AppErrorBoundary>\n      <ExperienceRoot />\n    </AppErrorBoundary>\n  </React.StrictMode>"
+          )
+          main_path.write_text(main)
+
+          home_css = Path('src/home-simplify.css')
+          if home_css.exists():
+              home_css.unlink()
+
+          package_path = Path('package.json')
+          package_data = json.loads(package_path.read_text())
+          package_data.get('dependencies', {}).pop('@google/genai', None)
+          package_path.write_text(json.dumps(package_data, ensure_ascii=False, indent=2) + '\n')
+          PY
+
+      - name: Refresh frontend lockfile
+        run: npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+
+      - name: Install frontend dependencies cleanly
+        run: npm ci --no-audit --no-fund
+
+      - name: Install backend dependencies cleanly
+        run: npm ci --prefix server --no-audit --no-fund
+
+      - name: Audit dependencies
+        run: |
+          npm audit --audit-level=high
+          npm audit --prefix server --audit-level=high
+
+      - name: Generate Prisma client
+        run: npm --prefix server run db:generate
+
+      - name: Check backend syntax
+        run: find server/src server/scripts -name '*.js' -print0 | xargs -0 -n1 node --check
+
+      - name: Run frontend tests
+        run: npm test
+
+      - name: Run backend tests
+        run: npm --prefix server test
+
+      - name: Build production frontend
+        run: npm run build
+
+      - name: Commit validated completion patch
+        shell: bash
+        run: |
+          rm .github/workflows/product-completion-patch.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "feat: finish Guardei product completion sprint"
+          git push origin HEAD:feat/product-completion-sprint
