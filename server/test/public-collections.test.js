@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { buildSharedImportData, PUBLIC_SHARED_VIDEO_SELECT, sharedTitle } from "../src/collections/publicCollection.js";
 
@@ -93,4 +94,13 @@ test("public title collapses internal title variants into the single visible val
   assert.equal(sharedTitle({ titleOriginal: "Original", titleAi: "AI", titleCustom: "Custom" }), "Custom");
   assert.equal(sharedTitle({ titleOriginal: "Original", titleAi: "AI" }), "AI");
   assert.equal(sharedTitle({ titleOriginal: "Original" }), "Original");
+});
+
+test("public routes are wired to the allowlist and sanitized import builder", async () => {
+  const routes = await readFile(new URL("../src/routes/collectionRoutes.js", import.meta.url), "utf8");
+  assert.match(routes, /video:\s*\{\s*select:\s*PUBLIC_SHARED_VIDEO_SELECT\s*\}/);
+  assert.match(routes, /data:\s*buildSharedImportData\(entry,\s*req\.user\.id\)/);
+  assert.doesNotMatch(routes, /entry\.note\s*\|\|\s*source\.note/);
+  assert.doesNotMatch(routes, /description:\s*source\.description/);
+  assert.doesNotMatch(routes, /sourceText:\s*source\.sourceText/);
 });
