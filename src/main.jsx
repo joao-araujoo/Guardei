@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import './lib/localIconify.js';
+import './local-icons.css';
 import App from './App.jsx';
 import AppErrorBoundary from './AppErrorBoundary.jsx';
 import ProductShell from './ProductShell.jsx';
