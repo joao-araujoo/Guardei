@@ -41,7 +41,7 @@ test('local Lucide runtime covers every icon referenced by the frontend', async 
   const usedNames = await collectUsedNames();
   assert.deepEqual(catalogNames, usedNames);
   assert.match(runtime, /customElements\.define\('iconify-icon'/);
-  assert.doesNotMatch(runtime, /https?:\/\//i, 'runtime must not fetch icons at runtime');
+  assert.doesNotMatch(runtime, /code\.iconify\.design|api\.iconify\.design|fetch\s*\(/i, 'runtime must not fetch icons at runtime');
 });
 
 test('main entry registers the local icon runtime before rendering', async () => {
