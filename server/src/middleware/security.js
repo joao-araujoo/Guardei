@@ -2,8 +2,7 @@ const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 
 export function securityHeaders(req, res, next) {
   const allowedConnect = parseOrigins(process.env.CORS_ORIGIN).join(" ");
-  const forwardedProtocol = String(req.get("x-forwarded-proto") || "").split(",")[0].trim().toLowerCase();
-  const isHttps = req.secure || forwardedProtocol === "https";
+  const isHttps = requestProtocol(req) === "https";
 
   res.setHeader("X-Content-Type-Options", "nosniff");
   res.setHeader("X-Frame-Options", "DENY");
@@ -35,20 +34,32 @@ export function securityHeaders(req, res, next) {
 
 export function verifyRequestOrigin(req, res, next) {
   if (SAFE_METHODS.has(req.method)) return next();
-  const origin = req.get("origin");
+  const origin = normalizeOriginHeader(req.get("origin"));
   if (!origin) return next();
 
   if (isExtensionOrigin(origin) && req.path.startsWith("/api/capture")) return next();
 
   const allowed = new Set(parseOrigins(process.env.CORS_ORIGIN));
-  const protocol = req.secure || req.get("x-forwarded-proto") === "https" ? "https" : "http";
-  const host = req.get("host");
-  if (host) allowed.add(`${protocol}://${host}`);
+  const currentOrigin = getRequestOrigin(req);
+  if (currentOrigin) allowed.add(currentOrigin);
 
   if (!allowed.has(origin)) {
     return res.status(403).json({ ok: false, code: "INVALID_ORIGIN", message: "Origem da requisicao nao permitida." });
   }
   return next();
+}
+
+export function getRequestOrigin(req) {
+  const protocol = requestProtocol(req);
+  const forwardedHost = firstHeaderValue(req.get("x-forwarded-host"));
+  const host = forwardedHost || firstHeaderValue(req.get("host"));
+  if (!host || /[\\/\s]/.test(host)) return "";
+
+  try {
+    return new URL(`${protocol}://${host}`).origin;
+  } catch {
+    return "";
+  }
 }
 
 export function isExtensionOrigin(origin) {
@@ -58,6 +69,21 @@ export function isExtensionOrigin(origin) {
 export function parseOrigins(value = "http://localhost:5173") {
   return String(value || "")
     .split(",")
-    .map((item) => item.trim().replace(/\/$/, ""))
+    .map((item) => normalizeOriginHeader(item))
     .filter(Boolean);
+}
+
+function requestProtocol(req) {
+  const forwardedProtocol = firstHeaderValue(req.get("x-forwarded-proto")).toLowerCase();
+  if (req.secure || forwardedProtocol === "https") return "https";
+  if (forwardedProtocol === "http") return "http";
+  return String(req.protocol || "http").toLowerCase() === "https" ? "https" : "http";
+}
+
+function firstHeaderValue(value) {
+  return String(value || "").split(",")[0].trim();
+}
+
+function normalizeOriginHeader(value) {
+  return String(value || "").trim().replace(/\/$/, "");
 }
