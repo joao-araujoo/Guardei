@@ -79,7 +79,22 @@ jobs:
           npx prisma migrate status
           npm run db:generate
 
-      - name: Validate legacy db-push migration adoption
+      - name: Validate legacy adoption with empty migration history
+        working-directory: server
+        run: |
+          node --input-type=module <<'NODE'
+          import { PrismaClient } from '@prisma/client';
+          const prisma = new PrismaClient();
+          try {
+            await prisma.$executeRawUnsafe('TRUNCATE TABLE "_prisma_migrations"');
+          } finally {
+            await prisma.$disconnect();
+          }
+          NODE
+          npm run db:migrate:production
+          npx prisma migrate status
+
+      - name: Validate legacy adoption with missing migration history
         working-directory: server
         run: |
           node --input-type=module <<'NODE'
