@@ -27,7 +27,7 @@ A experiência principal é deliberadamente simples: a pessoa pode continuar no 
 - pensamentos rápidos que também entram na busca semântica;
 - importação de favoritos HTML/CSV com deduplicação;
 - snapshot textual seguro de páginas para não depender somente de uma URL viva;
-- token de captura restrito para a extensão do navegador.
+- token de captura restrito para a extensão do navegador, com pausa global e revogação individual.
 
 ### Extensão do navegador
 
@@ -63,7 +63,7 @@ O token `gcp_...` usado pela extensão só é aceito nas rotas de captura e pode
 - repetição espaçada determinística;
 - aplicações reais com evidência/reflexão;
 - dashboard de conhecimento;
-- Central Hoje com sessões por tempo disponível.
+- Central Hoje com sessões por tempo disponível e progresso real da meta diária de revisão.
 
 ### Organização sem pastas obrigatórias
 
@@ -73,7 +73,7 @@ O token `gcp_...` usado pela extensão só é aceito nas rotas de captura e pode
 
 ### Compartilhamento
 
-- coleções públicas com slug próprio;
+- coleções públicas com slug próprio e exclusão com confirmação segura;
 - página pública em `shared.html`;
 - visitantes podem abrir fontes sem conta;
 - usuário autenticado pode **Guardar tudo no meu Guardei** com deduplicação.
@@ -134,7 +134,8 @@ Configure `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` e `VAPID_SUBJECT`. Não troque
 
 O CI principal executa:
 
-- instalação frontend/backend;
+- instalação limpa frontend/backend com `npm ci`;
+- `npm audit` frontend/backend em nível high;
 - geração do Prisma Client;
 - syntax check de todo backend JavaScript;
 - testes do produto inteligente;

@@ -212,3 +212,9 @@ Não descreva apenas “melhorias de UI”. Seja específico.
 Uma alteração visual só está pronta quando parece pertencer ao Guardei mesmo se o autor original não estiver presente para orientar.
 
 Se uma nova tela parece ter vindo de outro produto, a implementação ainda não está pronta.
+### Product data invariant: consumir != aplicar
+
+- `watchedAt` / `consumedAt` mean the user consumed the content.
+- `applicationStatus`, `appliedAt` and application commitments mean the user actually applied something.
+- Never set `status: aplicado` merely because a video/link was watched, opened, reviewed or marked as seen.
+- Any new Guardinho action that mutates consumption/application state must have a regression test for this distinction.
