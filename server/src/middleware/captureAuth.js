@@ -31,7 +31,7 @@ export async function requireCaptureOrAuth(req, res, next) {
       },
     });
     if (!token?.user) return res.status(401).json({ ok: false, message: "Token de captura invalido." });
-    if (extensionOrigin && token.user.settings?.extensionCaptureEnabled === false) {
+    if (token.user.settings?.extensionCaptureEnabled === false) {
       return res.status(403).json({ ok: false, message: "Captura pela extensao esta pausada nas configuracoes." });
     }
     req.user = { id: token.user.id, email: token.user.email, name: token.user.name };
