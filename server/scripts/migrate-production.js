@@ -12,6 +12,7 @@ const __dirname = path.dirname(__filename);
 const serverRoot = path.resolve(__dirname, "..");
 const migrationsDir = path.join(serverRoot, "prisma", "migrations");
 const prismaCli = path.join(serverRoot, "node_modules", "prisma", "build", "index.js");
+const MAX_DRIFT_OUTPUT = 12_000;
 
 async function main() {
   if (!process.env.DATABASE_URL) throw new Error("DATABASE_URL nao configurada para migrations.");
@@ -46,6 +47,8 @@ async function main() {
     ], { quiet: true, allowDiffExit: true });
 
     if (diff.status === 2) {
+      const schemaOnlyDiff = String(diff.stdout || "").trim().slice(0, MAX_DRIFT_OUTPUT);
+      if (schemaOnlyDiff) console.error(`[migrate-production] Drift estrutural detectado:\n${schemaOnlyDiff}`);
       throw new Error("O banco legado possui drift em relacao ao schema atual. A adocao automatica foi interrompida para proteger os dados.");
     }
     if (diff.status !== 0) {
