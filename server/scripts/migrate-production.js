@@ -19,6 +19,7 @@ async function main() {
 
   const prisma = new PrismaClient();
   let state;
+  let migrationRows = 0;
   try {
     const rows = await prisma.$queryRawUnsafe(`
       SELECT
@@ -27,15 +28,22 @@ async function main() {
         to_regclass('public."Video"')::text AS "videoTable"
     `);
     state = rows?.[0] || {};
+
+    if (state.migrationTable) {
+      const counts = await prisma.$queryRawUnsafe(`SELECT COUNT(*)::int AS "count" FROM "_prisma_migrations"`);
+      migrationRows = Number(counts?.[0]?.count || 0);
+    }
   } finally {
     await prisma.$disconnect();
   }
 
   const hasLegacySchema = Boolean(state.userTable || state.videoTable);
-  const hasMigrationHistory = Boolean(state.migrationTable);
+  const migrationTableExists = Boolean(state.migrationTable);
+  const hasMigrationHistory = migrationTableExists && migrationRows > 0;
 
   if (hasLegacySchema && !hasMigrationHistory) {
-    console.log("Schema legado sem historico Prisma detectado; validando compatibilidade antes da adocao...");
+    const historyState = migrationTableExists ? "tabela _prisma_migrations vazia" : "sem tabela _prisma_migrations";
+    console.log(`Schema legado ${historyState} detectado; validando compatibilidade antes da adocao...`);
     const diff = runPrisma([
       "migrate",
       "diff",
