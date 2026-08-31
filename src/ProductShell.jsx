@@ -52,6 +52,8 @@ function SmartLayer({ onVaultChanged }) {
   ]);
   const mountedRef = useRef(true);
   const noticeTimerRef = useRef(null);
+  const triggerRef = useRef(null);
+  const panelRef = useRef(null);
 
   const loadSnapshot = useCallback(async () => {
     try {
@@ -71,7 +73,7 @@ function SmartLayer({ onVaultChanged }) {
     }
   }, []);
 
-  const recommendation = useMemo(() => pickSmartRecommendation(videos), [videos]);
+  const recommendation = useMemo(() => settings.recommendationMode === 'smart' ? pickSmartRecommendation(videos) : null, [settings.recommendationMode, videos]);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -131,41 +133,56 @@ function SmartLayer({ onVaultChanged }) {
   }, [ready, settings.clipboardSuggestionsEnabled, videos]);
 
   useEffect(() => {
-    const handleLegacyGuardinhoIntent = event => {
-      const target = event.target;
-      if (!(target instanceof Element)) return;
+  const handleOpenGuardinho = event => {
+    const detail = event?.detail || {};
+    if (detail.assistantMessage) {
+      setMessages(items => [...items, { role: 'assistant', text: String(detail.assistantMessage) }].slice(-12));
+    }
+    if (detail.command) setCommand(String(detail.command));
+    setPanelOpen(true);
+  };
 
-      const intent = target.closest('.mascot-launcher, .mascot-speech');
-      if (!intent) return;
-
-      const legacyContainer = intent.closest('.floating-mascot');
-      if (legacyContainer?.classList.contains('open')) return;
-
-      event.preventDefault();
-      event.stopPropagation();
-      setPanelOpen(true);
-    };
-
-    document.addEventListener('click', handleLegacyGuardinhoIntent, true);
-    return () => document.removeEventListener('click', handleLegacyGuardinhoIntent, true);
-  }, []);
+  window.addEventListener('guardei:open-guardinho', handleOpenGuardinho);
+  return () => window.removeEventListener('guardei:open-guardinho', handleOpenGuardinho);
+}, []);
 
   useEffect(() => {
-    if (!panelOpen) return undefined;
+  if (!panelOpen) return undefined;
 
-    const previousOverflow = document.body.style.overflow;
-    const handleKeyDown = event => {
-      if (event.key === 'Escape') setPanelOpen(false);
-    };
+  const previousOverflow = document.body.style.overflow;
+  const previousFocus = document.activeElement;
+  const focusableSelector = 'button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])';
+  const handleKeyDown = event => {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      setPanelOpen(false);
+      return;
+    }
+    if (event.key !== 'Tab') return;
+    const focusable = panelRef.current?.querySelectorAll(focusableSelector);
+    if (!focusable?.length) return;
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  };
 
-    document.body.style.overflow = 'hidden';
-    window.addEventListener('keydown', handleKeyDown);
+  document.body.style.overflow = 'hidden';
+  window.addEventListener('keydown', handleKeyDown);
+  window.requestAnimationFrame(() => panelRef.current?.querySelector(focusableSelector)?.focus());
 
-    return () => {
-      document.body.style.overflow = previousOverflow;
-      window.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [panelOpen]);
+  return () => {
+    document.body.style.overflow = previousOverflow;
+    window.removeEventListener('keydown', handleKeyDown);
+    if (previousFocus instanceof HTMLElement && document.contains(previousFocus)) previousFocus.focus();
+    else triggerRef.current?.focus?.();
+  };
+}, [panelOpen]);
 
   async function inspectClipboard({ interactive = false } = {}) {
     if (!settings.clipboardSuggestionsEnabled || !navigator.clipboard?.readText || !window.isSecureContext) return null;
@@ -259,9 +276,8 @@ function SmartLayer({ onVaultChanged }) {
     try {
       const now = new Date().toISOString();
       await repository.updateVideo(video.id, {
-        status: 'aplicado',
+        consumedAt: now,
         watchedAt: now,
-        reviewedAt: now,
         watchCount: Number(video.watchCount || 0) + 1,
         watchedSeconds: Number(video.watchedSeconds || 0) || 300
       });
@@ -325,6 +341,24 @@ function SmartLayer({ onVaultChanged }) {
     flash(next ? 'Sugestões de clipboard ativadas.' : 'Sugestões de clipboard pausadas.');
   }
 
+  async function toggleGuardinhoActions() {
+    const next = !settings.guardinhoActionsEnabled;
+    try {
+      await persistSettings({ guardinhoActionsEnabled: next });
+      flash(next ? 'Ações do Guardinho ativadas.' : 'Ações do Guardinho pausadas.');
+    } catch {
+      flash('Não consegui salvar essa preferência.');
+    }
+  }
+
+  async function updateSmartPreference(key, value) {
+    try {
+      await persistSettings({ [key]: value });
+    } catch {
+      flash('Não consegui salvar essa preferência.');
+    }
+  }
+
   async function persistSettings(patch) {
     const next = { ...settings, ...patch };
     setSettings(next);
@@ -382,6 +416,7 @@ function SmartLayer({ onVaultChanged }) {
 
       <button
         className="smart-guardinho-trigger"
+        ref={triggerRef}
         type="button"
         onClick={() => setPanelOpen(true)}
         aria-label="Abrir Guardinho inteligente"
@@ -396,7 +431,7 @@ function SmartLayer({ onVaultChanged }) {
 
       {panelOpen ? (
         <div className="smart-panel-backdrop" onMouseDown={event => event.target === event.currentTarget && setPanelOpen(false)}>
-          <aside className="smart-panel" role="dialog" aria-modal="true" aria-labelledby="guardinho-panel-title">
+          <aside className="smart-panel" ref={panelRef} role="dialog" aria-modal="true" aria-labelledby="guardinho-panel-title">
             <header className="smart-panel-header">
               <div className="smart-panel-identity">
                 <img src={guardeiMascot} alt="" />
@@ -427,7 +462,7 @@ function SmartLayer({ onVaultChanged }) {
               ) : (
                 <section className="smart-empty-card">
                   <iconify-icon icon="lucide:inbox" />
-                  <div><strong>Nada para recomendar ainda</strong><span>Salve alguns links e eu começo a aprender o que merece voltar para você.</span></div>
+                  <div><strong>{settings.recommendationMode === 'manual' ? 'Recomendação automática pausada' : 'Nada para recomendar ainda'}</strong><span>{settings.recommendationMode === 'manual' ? 'Use “Me recomenda” quando quiser uma escolha sob demanda.' : 'Salve alguns links e eu começo a aprender o que merece voltar para você.'}</span></div>
                 </section>
               )}
 
@@ -440,17 +475,39 @@ function SmartLayer({ onVaultChanged }) {
                   <iconify-icon icon="lucide:clipboard" />
                   <span><strong>Clipboard</strong><small>{settings.clipboardSuggestionsEnabled ? 'Automático' : 'Pausado'}</small></span>
                 </button>
+                <button type="button" onClick={toggleGuardinhoActions}>
+                  <iconify-icon icon={settings.guardinhoActionsEnabled ? 'lucide:wand-sparkles' : 'lucide:pause'} />
+                  <span><strong>Ações</strong><small>{settings.guardinhoActionsEnabled ? 'Ativas' : 'Pausadas'}</small></span>
+                </button>
                 <button type="button" onClick={() => inspectClipboard({ interactive: true })}>
                   <iconify-icon icon="lucide:clipboard-check" />
                   <span><strong>Checar agora</strong><small>1 toque</small></span>
                 </button>
               </section>
 
+              <section className="smart-preference-controls" aria-label="Preferências do Guardinho">
+                <label>
+                  <span>Recomendação</span>
+                  <select value={settings.recommendationMode || 'smart'} onChange={event => updateSmartPreference('recommendationMode', event.target.value)}>
+                    <option value="smart">Automática</option>
+                    <option value="manual">Só quando eu pedir</option>
+                  </select>
+                </label>
+                <label>
+                  <span>Frequência de lembretes</span>
+                  <select value={settings.notificationFrequency || 'balanced'} onChange={event => updateSmartPreference('notificationFrequency', event.target.value)}>
+                    <option value="light">Leve</option>
+                    <option value="balanced">Equilibrada</option>
+                    <option value="frequent">Frequente</option>
+                  </select>
+                </label>
+              </section>
+
               <section className="smart-quick-actions">
                 <span className="smart-section-label">Ações rápidas</span>
                 <div>
-                  <button type="button" disabled={busy} onClick={() => runCommand(null, 'me recomenda algo')}><iconify-icon icon="lucide:target" />Me recomenda</button>
-                  <button type="button" disabled={busy} onClick={() => runCommand(null, 'organiza o inbox')}><iconify-icon icon="lucide:wand-sparkles" />Organizar inbox</button>
+                  <button type="button" disabled={busy || !settings.guardinhoActionsEnabled} onClick={() => runCommand(null, 'me recomenda algo')}><iconify-icon icon="lucide:target" />Me recomenda</button>
+                  <button type="button" disabled={busy || !settings.guardinhoActionsEnabled} onClick={() => runCommand(null, 'organiza o inbox')}><iconify-icon icon="lucide:wand-sparkles" />Organizar inbox</button>
                   <button type="button" disabled={busy} onClick={() => inspectClipboard({ interactive: true })}><iconify-icon icon="lucide:link" />Guardar copiado</button>
                 </div>
               </section>
@@ -478,7 +535,7 @@ function SmartLayer({ onVaultChanged }) {
                     <iconify-icon icon="lucide:arrow-up" />
                   </button>
                 </form>
-                <p className="smart-command-hint">Ações são intencionais e reversíveis quando possível. O Guardinho não apaga itens por comando.</p>
+                <p className="smart-command-hint">{settings.guardinhoActionsEnabled ? 'Ações são intencionais e reversíveis quando possível. O Guardinho não apaga itens por comando.' : 'As ações estão pausadas. Reative acima para o Guardinho alterar o acervo.'}</p>
               </section>
             </div>
           </aside>

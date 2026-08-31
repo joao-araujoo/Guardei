@@ -209,8 +209,6 @@ model User {
   sharedCollections      SharedCollection[]
   quickThoughts          QuickThought[]
   weeklyDigests          WeeklyDigest[]
-  integrationAccounts    IntegrationAccount[]
-  integrationLinks       IntegrationLink[]
   captureTokens          CaptureToken[]
 }
 
@@ -604,30 +602,3 @@ model WeeklyDigest {
   @@index([userId, createdAt])
 }
 
-model IntegrationAccount {
-  id             String   @id @default(cuid())
-  userId         String
-  provider       String
-  externalUserId String
-  displayName    String?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([provider, externalUserId])
-  @@index([userId, provider])
-}
-
-model IntegrationLink {
-  id        String    @id @default(cuid())
-  userId    String
-  provider  String
-  code      String    @unique
-  expiresAt DateTime
-  usedAt    DateTime?
-  createdAt DateTime  @default(now())
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId, provider])
-  @@index([expiresAt])
-}

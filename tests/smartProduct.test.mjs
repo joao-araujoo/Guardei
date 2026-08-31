@@ -96,7 +96,10 @@ test('Guardinho marca item como visto sem apagar nada', async () => {
   assert.equal(result.action, 'mark-watched');
   assert.equal(calls.length, 1);
   assert.equal(calls[0].type, 'update');
-  assert.equal(calls[0].patch.status, 'aplicado');
+  assert.equal(calls[0].patch.status, undefined);
+  assert.equal(calls[0].patch.applicationStatus, undefined);
+  assert.ok(calls[0].patch.consumedAt);
+  assert.ok(calls[0].patch.watchedAt);
 });
 
 test('Guardinho não executa exclusão por comando', async () => {
