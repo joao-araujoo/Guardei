@@ -1,18 +1,25 @@
 import express from "express";
 import { AUTH_COOKIE, hashPassword, sessionCookieOptions, signSession, verifyPassword } from "../auth/security.js";
 import { requireAuth } from "../middleware/auth.js";
+import { createRateLimiter } from "../middleware/rateLimit.js";
 import { prisma } from "../db/prisma.js";
 
 const router = express.Router();
+const authRateLimit = createRateLimiter({
+  windowMs: 10 * 60 * 1000,
+  limit: 20,
+  keyPrefix: "auth",
+  message: "Muitas tentativas de acesso. Aguarde alguns minutos e tente novamente.",
+});
 
-router.post("/register", async (req, res, next) => {
+router.post("/register", authRateLimit, async (req, res, next) => {
   try {
     const email = normalizeEmail(req.body?.email);
-    const password = String(req.body?.password || "");
-    const name = String(req.body?.name || "").trim() || null;
+    const password = normalizePassword(req.body?.password);
+    const name = String(req.body?.name || "").trim().slice(0, 120) || null;
 
     if (!email) return res.status(400).json({ ok: false, message: "Email obrigatorio." });
-    if (password.length < 8) return res.status(400).json({ ok: false, message: "Use uma senha com pelo menos 8 caracteres." });
+    if (!password) return res.status(400).json({ ok: false, message: "Use uma senha entre 8 e 256 caracteres." });
 
     const existing = await prisma.user.findUnique({ where: { email } });
     if (existing) return res.status(409).json({ ok: false, message: "Esse email ja esta cadastrado." });
@@ -34,10 +41,10 @@ router.post("/register", async (req, res, next) => {
   }
 });
 
-router.post("/login", async (req, res, next) => {
+router.post("/login", authRateLimit, async (req, res, next) => {
   try {
     const email = normalizeEmail(req.body?.email);
-    const password = String(req.body?.password || "");
+    const password = normalizePassword(req.body?.password, { allowShort: true });
     if (!email || !password) return res.status(400).json({ ok: false, message: "Email e senha obrigatorios." });
 
     const user = await prisma.user.findUnique({ where: { email } });
@@ -63,7 +70,15 @@ router.get("/me", requireAuth, (req, res) => {
 
 function normalizeEmail(value = "") {
   const email = String(value).trim().toLowerCase();
+  if (!email || email.length > 320) return "";
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ? email : "";
+}
+
+function normalizePassword(value, { allowShort = false } = {}) {
+  const password = typeof value === "string" ? value : "";
+  if (!password || password.length > 256) return "";
+  if (!allowShort && password.length < 8) return "";
+  return password;
 }
 
 function publicUser(user) {
