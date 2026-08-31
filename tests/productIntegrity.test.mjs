@@ -9,6 +9,25 @@ test('frontend does not ship Gemini SDK directly', async () => {
   assert.equal(pkg.dependencies?.['@google/genai'], undefined);
 });
 
+test('production manifests are pinned and deploy through migrations', async () => {
+  const frontend = JSON.parse(await read('package.json'));
+  const backend = JSON.parse(await read('server/package.json'));
+  const allSpecs = [
+    ...Object.values(frontend.dependencies || {}),
+    ...Object.values(frontend.devDependencies || {}),
+    ...Object.values(backend.dependencies || {})
+  ];
+  assert.equal(frontend.name, 'guardei');
+  assert.equal(backend.name, 'guardei-server');
+  assert.ok(allSpecs.every(spec => spec !== 'latest'), 'direct dependencies must not float on latest');
+  assert.equal(frontend.dependencies?.['@vitejs/plugin-react'], undefined);
+  assert.equal(frontend.devDependencies?.['@vitejs/plugin-react'], undefined);
+  assert.match(frontend.scripts?.['render:build'] || '', /npm ci --prefix server/);
+  assert.match(frontend.scripts?.['render:build'] || '', /db:migrate:deploy/);
+  assert.doesNotMatch(frontend.scripts?.['render:build'] || '', /db:push/);
+  assert.equal(backend.scripts?.['db:migrate:deploy'], 'prisma migrate deploy');
+});
+
 test('home is rendered intentionally instead of hidden by CSS sibling hacks', async () => {
   const main = await read('src/main.jsx');
   const app = await read('src/App.jsx');
@@ -68,6 +87,20 @@ test('service worker notification seen action records consumption, not applicati
   assert.match(block, /watchedAt:\s*now/);
   assert.doesNotMatch(block, /status:\s*['"]aplicado['"]/);
   assert.doesNotMatch(block, /applicationStatus/);
+});
+
+test('extension contextual browsing is opt-in and avoids redundant tabs permission', async () => {
+  const manifest = JSON.parse(await read('extension/manifest.json'));
+  const background = await read('extension/background.js');
+  const content = await read('extension/content.js');
+  const options = await read('extension/options.js');
+  assert.ok(!manifest.permissions.includes('tabs'));
+  assert.match(background, /contextAssist:false/);
+  assert.match(options, /contextAssist:\s*false/);
+  assert.match(content, /chrome\.storage\.sync\.get\(\{contextAssist:false\}\)/);
+  const privacyGuard = content.indexOf('if(!settings.contextAssist)return');
+  const pageTextRead = content.indexOf("document.body?.innerText");
+  assert.ok(privacyGuard >= 0 && pageTextRead > privacyGuard, 'page text must only be read after opt-in');
 });
 
 test('PWA install and extension security controls stay reachable', async () => {
