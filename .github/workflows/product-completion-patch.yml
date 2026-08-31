@@ -54,6 +54,10 @@ jobs:
           ]:
               app = app.replace(line, '')
 
+          tip_start = app.index("  useEffect(() => {\n    if (!authChecked || mascotOpen) return;")
+          tip_end = app.index("\n  useEffect(() => {\n    if (!authChecked || !user || !['paths', 'path-details', 'map'].includes(view)) return;", tip_start)
+          app = app[:tip_start] + app[tip_end:]
+
           app = app.replace(
               "            onTalk={() => { setMascotInput(`O que eu deveria fazer agora na trilha ${selectedPath.title}?`); setMascotOpen(true); }}",
               "            onTalk={() => window.dispatchEvent(new CustomEvent('guardei:open-guardinho', { detail: { command: `O que eu deveria fazer agora na trilha ${selectedPath.title}?` } }))}"
@@ -159,7 +163,7 @@ jobs:
           """
           app = app[:start] + mobile + app[end:]
 
-          forbidden = ['FloatingMascot', 'mascotOpen', 'setMascotOpen', 'mascotInput', 'setMascotInput', 'mascotMessages', 'mascotBubble', 'mascotLoading', 'greeFn']
+          forbidden = ['FloatingMascot', 'mascotOpen', 'setMascotOpen', 'mascotInput', 'setMascotInput', 'mascotMessages', 'mascotBubble', 'setMascotBubble', 'mascotLoading', 'greeFn']
           leftovers = [token for token in forbidden if token in app]
           if leftovers:
               raise SystemExit(f'Legacy App tokens remain: {leftovers}')
