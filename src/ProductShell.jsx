@@ -73,7 +73,7 @@ function SmartLayer({ onVaultChanged }) {
     }
   }, []);
 
-  const recommendation = useMemo(() => pickSmartRecommendation(videos), [videos]);
+  const recommendation = useMemo(() => settings.recommendationMode === 'smart' ? pickSmartRecommendation(videos) : null, [settings.recommendationMode, videos]);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -278,7 +278,6 @@ function SmartLayer({ onVaultChanged }) {
       await repository.updateVideo(video.id, {
         consumedAt: now,
         watchedAt: now,
-        reviewedAt: now,
         watchCount: Number(video.watchCount || 0) + 1,
         watchedSeconds: Number(video.watchedSeconds || 0) || 300
       });
@@ -340,6 +339,24 @@ function SmartLayer({ onVaultChanged }) {
     await persistSettings({ clipboardSuggestionsEnabled: next });
     if (!next) setClipboardSuggestion(null);
     flash(next ? 'Sugestões de clipboard ativadas.' : 'Sugestões de clipboard pausadas.');
+  }
+
+  async function toggleGuardinhoActions() {
+    const next = !settings.guardinhoActionsEnabled;
+    try {
+      await persistSettings({ guardinhoActionsEnabled: next });
+      flash(next ? 'Ações do Guardinho ativadas.' : 'Ações do Guardinho pausadas.');
+    } catch {
+      flash('Não consegui salvar essa preferência.');
+    }
+  }
+
+  async function updateSmartPreference(key, value) {
+    try {
+      await persistSettings({ [key]: value });
+    } catch {
+      flash('Não consegui salvar essa preferência.');
+    }
   }
 
   async function persistSettings(patch) {
@@ -445,7 +462,7 @@ function SmartLayer({ onVaultChanged }) {
               ) : (
                 <section className="smart-empty-card">
                   <iconify-icon icon="lucide:inbox" />
-                  <div><strong>Nada para recomendar ainda</strong><span>Salve alguns links e eu começo a aprender o que merece voltar para você.</span></div>
+                  <div><strong>{settings.recommendationMode === 'manual' ? 'Recomendação automática pausada' : 'Nada para recomendar ainda'}</strong><span>{settings.recommendationMode === 'manual' ? 'Use “Me recomenda” quando quiser uma escolha sob demanda.' : 'Salve alguns links e eu começo a aprender o que merece voltar para você.'}</span></div>
                 </section>
               )}
 
@@ -458,17 +475,39 @@ function SmartLayer({ onVaultChanged }) {
                   <iconify-icon icon="lucide:clipboard" />
                   <span><strong>Clipboard</strong><small>{settings.clipboardSuggestionsEnabled ? 'Automático' : 'Pausado'}</small></span>
                 </button>
+                <button type="button" onClick={toggleGuardinhoActions}>
+                  <iconify-icon icon={settings.guardinhoActionsEnabled ? 'lucide:wand-sparkles' : 'lucide:pause'} />
+                  <span><strong>Ações</strong><small>{settings.guardinhoActionsEnabled ? 'Ativas' : 'Pausadas'}</small></span>
+                </button>
                 <button type="button" onClick={() => inspectClipboard({ interactive: true })}>
                   <iconify-icon icon="lucide:clipboard-check" />
                   <span><strong>Checar agora</strong><small>1 toque</small></span>
                 </button>
               </section>
 
+              <section className="smart-preference-controls" aria-label="Preferências do Guardinho">
+                <label>
+                  <span>Recomendação</span>
+                  <select value={settings.recommendationMode || 'smart'} onChange={event => updateSmartPreference('recommendationMode', event.target.value)}>
+                    <option value="smart">Automática</option>
+                    <option value="manual">Só quando eu pedir</option>
+                  </select>
+                </label>
+                <label>
+                  <span>Frequência de lembretes</span>
+                  <select value={settings.notificationFrequency || 'balanced'} onChange={event => updateSmartPreference('notificationFrequency', event.target.value)}>
+                    <option value="light">Leve</option>
+                    <option value="balanced">Equilibrada</option>
+                    <option value="frequent">Frequente</option>
+                  </select>
+                </label>
+              </section>
+
               <section className="smart-quick-actions">
                 <span className="smart-section-label">Ações rápidas</span>
                 <div>
-                  <button type="button" disabled={busy} onClick={() => runCommand(null, 'me recomenda algo')}><iconify-icon icon="lucide:target" />Me recomenda</button>
-                  <button type="button" disabled={busy} onClick={() => runCommand(null, 'organiza o inbox')}><iconify-icon icon="lucide:wand-sparkles" />Organizar inbox</button>
+                  <button type="button" disabled={busy || !settings.guardinhoActionsEnabled} onClick={() => runCommand(null, 'me recomenda algo')}><iconify-icon icon="lucide:target" />Me recomenda</button>
+                  <button type="button" disabled={busy || !settings.guardinhoActionsEnabled} onClick={() => runCommand(null, 'organiza o inbox')}><iconify-icon icon="lucide:wand-sparkles" />Organizar inbox</button>
                   <button type="button" disabled={busy} onClick={() => inspectClipboard({ interactive: true })}><iconify-icon icon="lucide:link" />Guardar copiado</button>
                 </div>
               </section>
@@ -496,7 +535,7 @@ function SmartLayer({ onVaultChanged }) {
                     <iconify-icon icon="lucide:arrow-up" />
                   </button>
                 </form>
-                <p className="smart-command-hint">Ações são intencionais e reversíveis quando possível. O Guardinho não apaga itens por comando.</p>
+                <p className="smart-command-hint">{settings.guardinhoActionsEnabled ? 'Ações são intencionais e reversíveis quando possível. O Guardinho não apaga itens por comando.' : 'As ações estão pausadas. Reative acima para o Guardinho alterar o acervo.'}</p>
               </section>
             </div>
           </aside>

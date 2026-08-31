@@ -32,7 +32,11 @@ export default function EverywhereLayer() {
   const [selectedIds, setSelectedIds] = useState([]);
   const [lastToken, setLastToken] = useState('');
   const [intentTarget, setIntentTarget] = useState(null);
+  const [confirmCollectionId, setConfirmCollectionId] = useState(null);
+  const [confirmTokenId, setConfirmTokenId] = useState(null);
   const dirtyRef = useRef(false);
+  const launcherRef = useRef(null);
+  const panelRef = useRef(null);
   const noticeTimer = useRef(null);
 
   useEffect(() => {
@@ -67,6 +71,31 @@ export default function EverywhereLayer() {
     if (!open || !available) return;
     loadHub();
   }, [open, available]);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const previousOverflow = document.body.style.overflow;
+    const previousFocus = document.activeElement;
+    const selector = 'button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])';
+    const handleTab = event => {
+      if (event.key !== 'Tab') return;
+      const focusable = panelRef.current?.querySelectorAll(selector);
+      if (!focusable?.length) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+    };
+    document.body.style.overflow = 'hidden';
+    window.addEventListener('keydown', handleTab);
+    window.requestAnimationFrame(() => panelRef.current?.querySelector(selector)?.focus());
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener('keydown', handleTab);
+      if (previousFocus instanceof HTMLElement && document.contains(previousFocus)) previousFocus.focus();
+      else launcherRef.current?.focus?.();
+    };
+  }, [open]);
 
   async function loadHub() {
     const results = await Promise.allSettled([
@@ -243,6 +272,34 @@ export default function EverywhereLayer() {
     }
   }
 
+  async function deleteCollection(id) {
+    setBusy(true);
+    try {
+      await everywhereService.removeCollection(id);
+      setCollections(items => items.filter(item => item.id !== id));
+      setConfirmCollectionId(null);
+      flash('Coleção removida.');
+    } catch (error) {
+      flash(error.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function revokeToken(id) {
+    setBusy(true);
+    try {
+      await everywhereService.revokeCaptureToken(id);
+      setTokens(items => items.map(item => item.id === id ? { ...item, revokedAt: new Date().toISOString() } : item));
+      setConfirmTokenId(null);
+      flash('Token revogado. A extensão que usava esse token perdeu o acesso.');
+    } catch (error) {
+      flash(error.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function toggleSetting(key) {
     const next = !settings[key];
     setSettings(current => ({ ...current, [key]: next }));
@@ -268,7 +325,7 @@ export default function EverywhereLayer() {
 
   return (
     <div className="everywhere-root">
-      <button className="everywhere-launcher" type="button" onClick={() => { setOpen(true); setTab('capture'); }} aria-label="Abrir captura universal do Guardei">
+      <button className="everywhere-launcher" ref={launcherRef} type="button" onClick={() => { setOpen(true); setTab('capture'); }} aria-label="Abrir captura universal do Guardei">
         <iconify-icon icon="lucide:plus" />
         <span><strong>Guardar</strong><small>Ctrl K</small></span>
       </button>
@@ -283,7 +340,7 @@ export default function EverywhereLayer() {
 
       {open ? (
         <div className="everywhere-backdrop" onMouseDown={event => event.target === event.currentTarget && closePanel()}>
-          <section className="everywhere-panel" role="dialog" aria-modal="true" aria-labelledby="everywhere-title">
+          <section className="everywhere-panel" ref={panelRef} role="dialog" aria-modal="true" aria-labelledby="everywhere-title">
             <header className="everywhere-head">
               <div><span>Guardei em todo lugar</span><h2 id="everywhere-title">Pouco trabalho. Mais memória.</h2></div>
               <button className="everywhere-icon" type="button" onClick={closePanel} aria-label="Fechar"><iconify-icon icon="lucide:x" /></button>
@@ -353,16 +410,25 @@ export default function EverywhereLayer() {
                   <section className="everywhere-card">
                     <div className="everywhere-card-head"><div><span>Curadoria que viaja</span><h3>Coleções compartilháveis</h3></div><iconify-icon icon="lucide:send" /></div>
                     <form onSubmit={createCollection} className="collection-form"><input value={collectionTitle} onChange={event => setCollectionTitle(event.target.value)} placeholder="Ex.: Começando em React" /><div className="collection-picker">{recentVideos.map(video => <label key={video.id}><input type="checkbox" checked={selectedIds.includes(video.id)} onChange={() => setSelectedIds(current => current.includes(video.id) ? current.filter(id => id !== video.id) : [...current, video.id])} /><span>{displayTitle(video)}</span></label>)}</div><button className="everywhere-primary" disabled={busy}>Criar link público</button></form>
-                    {collections.length ? <div className="collection-list">{collections.slice(0, 6).map(item => { const shareUrl = `${window.location.origin}/shared.html?slug=${encodeURIComponent(item.slug)}`; return <div key={item.id}><span><strong>{item.title}</strong><small>{item.itemCount ?? item.items?.length ?? 0} itens</small></span><button type="button" onClick={() => copyText(shareUrl)}><iconify-icon icon="lucide:copy" /> Copiar link</button></div>; })}</div> : null}
-                  </section>
+                    {collections.length ? <div className="collection-list">{collections.slice(0, 6).map(item => {
+                      const shareUrl = `${window.location.origin}/shared.html?slug=${encodeURIComponent(item.slug)}`;
+                      const confirming = confirmCollectionId === item.id;
+                      return <div key={item.id}><span><strong>{item.title}</strong><small>{item.itemCount ?? item.items?.length ?? 0} itens</small></span><div className="collection-actions"><button type="button" onClick={() => copyText(shareUrl)}><iconify-icon icon="lucide:copy" /> Copiar</button>{confirming ? <><button type="button" className="danger-action" disabled={busy} onClick={() => deleteCollection(item.id)}>Confirmar exclusão</button><button type="button" onClick={() => setConfirmCollectionId(null)}>Cancelar</button></> : <button type="button" className="danger-action" onClick={() => setConfirmCollectionId(item.id)} aria-label={`Excluir coleção ${item.title}`}><iconify-icon icon="lucide:trash-2" /> Excluir</button>}</div></div>;
+                    })}</div> : null}
+                    </section>
 
                   <section className="everywhere-card">
                     <div className="everywhere-card-head"><div><span>Navegador</span><h3>Extensão em um clique</h3></div><iconify-icon icon="lucide:puzzle" /></div>
                     <p>Gere um token limitado apenas à captura. A extensão nunca recebe sua senha nem acesso amplo à conta.</p>
-                    <button className="everywhere-secondary" type="button" onClick={createToken} disabled={busy}>Gerar token da extensão</button>
+                    <button className="everywhere-secondary" type="button" onClick={createToken} disabled={busy || settings.extensionCaptureEnabled === false}>Gerar token da extensão</button>
                     {lastToken ? <div className="secret-box"><code>{lastToken}</code><button type="button" onClick={() => copyText(lastToken)}>Copiar</button></div> : null}
-                    <small className="everywhere-muted">{tokens.filter(item => !item.revokedAt).length} token(s) ativo(s). Veja a pasta <code>extension/</code> do projeto para instalar em modo desenvolvedor.</small>
-                  </section>
+                    <div className="token-management-list">
+                      {tokens.filter(item => !item.revokedAt).length ? tokens.filter(item => !item.revokedAt).map(item => {
+                        const confirming = confirmTokenId === item.id;
+                        return <div key={item.id}><span><strong>{item.name}</strong><small>{item.lastUsedAt ? `Usado em ${new Date(item.lastUsedAt).toLocaleDateString('pt-BR')}` : 'Ainda não usado'}</small></span>{confirming ? <div className="token-actions"><button type="button" className="danger-action" disabled={busy} onClick={() => revokeToken(item.id)}>Confirmar revogação</button><button type="button" onClick={() => setConfirmTokenId(null)}>Cancelar</button></div> : <button type="button" className="danger-action" onClick={() => setConfirmTokenId(item.id)} aria-label={`Revogar token ${item.name}`}>Revogar</button>}</div>;
+                      }) : <small className="everywhere-muted">Nenhum token ativo.</small>}
+                    </div>
+                    </section>
 
                   <section className="everywhere-card">
                     <div className="everywhere-card-head"><div><span>Automação silenciosa</span><h3>O Guardei cuida por baixo</h3></div><iconify-icon icon="lucide:wand-sparkles" /></div>
@@ -371,6 +437,7 @@ export default function EverywhereLayer() {
                       <Preference label="Arquivo permanente" text="Guarda texto seguro de páginas para o link não virar memória perdida." checked={settings.autoSnapshotEnabled !== false} onChange={() => toggleSetting('autoSnapshotEnabled')} />
                       <Preference label="Ajuda contextual" text="A extensão avisa quando você já guardou algo sobre a página atual." checked={settings.contextAssistEnabled !== false} onChange={() => toggleSetting('contextAssistEnabled')} />
                       <Preference label="Screenshot pesquisável" text="Usa visão/OCR quando disponível." checked={settings.screenshotOcrEnabled !== false} onChange={() => toggleSetting('screenshotOcrEnabled')} />
+                      <Preference label="Captura pela extensão" text="Pausa ou libera todos os tokens da extensão sem apagar os tokens." checked={settings.extensionCaptureEnabled !== false} onChange={() => toggleSetting('extensionCaptureEnabled')} />
                     </div>
                   </section>
                 </div>

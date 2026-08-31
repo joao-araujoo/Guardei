@@ -38,11 +38,16 @@ export default function TodayHub({ refreshKey = 0, onStartReview, onOpenVideo, o
 
   const counts = data?.counts || {};
   const action = data?.nextAction || {};
+  const reviewedToday = Number(counts.reviewedToday || 0);
+  const dailyTarget = Math.max(1, Number(counts.dailyReviewTarget || 3));
   return (
     <section className="today-hub" aria-labelledby="today-hub-title">
       <header className="today-hub-head">
         <div><span className="eyebrow">Ciclo de Conhecimento</span><h2 id="today-hub-title">Hoje</h2><p>Uma visão curta do que pode ajudar você a decidir, lembrar e aplicar — sem criar obrigação artificial.</p></div>
-        {!!counts.dueCards && <span className="review-badge" aria-label={`${counts.dueCards} cartões pendentes`}>{counts.dueCards} para recordar</span>}
+        <div className="today-hub-badges">
+          <span className="review-badge" aria-label={`${reviewedToday} de ${dailyTarget} revisões da meta diária concluídas`}>{reviewedToday}/{dailyTarget} revisões hoje</span>
+          {!!counts.dueCards && <span className="review-badge" aria-label={`${counts.dueCards} cartões pendentes`}>{counts.dueCards} para recordar</span>}
+        </div>
       </header>
 
       <article className={`next-action action-${action.type || 'empty'}`}>

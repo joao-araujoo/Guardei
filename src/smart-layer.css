@@ -259,7 +259,7 @@
 
 .smart-settings-row {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   overflow: hidden;
 }
 .smart-settings-row button {
@@ -374,6 +374,20 @@
   line-height: 1.4;
 }
 
+
+.smart-preference-controls {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 2px solid var(--ink);
+  border-radius: var(--radius-lg);
+  background: var(--paper);
+  box-shadow: var(--shadow-sm);
+}
+.smart-preference-controls label { display: grid; gap: var(--space-1); color: var(--muted); font-size: 10px; font-weight: 800; }
+.smart-preference-controls select { width: 100%; min-height: 40px; border: 1px solid var(--line-2); background: var(--paper-2); color: var(--ink); padding: 0 var(--space-2); font: inherit; }
+
 @media (max-width: 720px) {
   .smart-guardinho-trigger {
     left: 12px;
@@ -410,7 +424,8 @@
     box-shadow: 0 -7px 0 rgba(40, 33, 25, .13);
   }
   .smart-panel-scroll { padding-bottom: calc(16px + env(safe-area-inset-bottom)); }
-  .smart-settings-row { grid-template-columns: 1fr; }
+  .smart-settings-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .smart-preference-controls { grid-template-columns: 1fr; }
   .smart-settings-row button { border-right: 0; border-bottom: 1px solid var(--line); }
   .smart-settings-row button:last-child { border-bottom: 0; }
 }

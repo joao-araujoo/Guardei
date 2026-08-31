@@ -82,7 +82,7 @@
 }
 
 .mobile-more-menu button.active {
-  background: var(--yellow-soft, #ffe8a8);
+  background: var(--ds-surface-soft);
 }
 
 .mobile-more-menu .icon-symbol {
@@ -137,4 +137,24 @@
   .mobile-more-menu {
     scroll-behavior: auto;
   }
+}
+
+
+.today-hub-badges { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--space-2); }
+.install-app-card { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: var(--space-3); }
+.install-app-card > div { display: grid; gap: var(--space-1); }
+.install-app-card small { color: var(--ds-text-muted); line-height: 1.45; }
+.collection-actions, .token-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--space-1); }
+.collection-actions .danger-action, .token-management-list .danger-action { color: var(--ds-danger); }
+.token-management-list { display: grid; gap: var(--space-2); margin-top: var(--space-3); }
+.token-management-list > div { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); padding: var(--space-2) 0; border-top: 1px solid var(--ds-border); }
+.token-management-list > div > span { display: grid; min-width: 0; gap: var(--space-1); }
+.token-management-list small { color: var(--ds-text-muted); }
+
+@media (max-width: 720px) {
+  .today-hub-badges { justify-content: flex-start; }
+  .install-app-card { grid-template-columns: auto minmax(0, 1fr); }
+  .install-app-card > .primary-btn, .install-app-card > .muted { grid-column: 1 / -1; }
+  .token-management-list > div { align-items: flex-start; flex-direction: column; }
+  .collection-actions, .token-actions { width: 100%; justify-content: flex-start; }
 }

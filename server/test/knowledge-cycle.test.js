@@ -191,6 +191,8 @@ test("central Hoje separa decisoes, cartoes, aplicacoes e trilhas", async () => 
   assert.equal(data.counts.dueCards, 1);
   assert.equal(data.counts.applications, 1);
   assert.equal(data.counts.activePaths, 1);
+  assert.equal(data.counts.reviewedToday, 2);
+  assert.equal(data.counts.dailyReviewTarget, 3);
   assert.ok(data.nextAction.title);
   assert.ok(data.sessions.five.activities.length >= 1);
 });
@@ -251,6 +253,8 @@ function todayPrisma() {
     knowledgeCard: { findMany: async () => [{ ...card(), question: "Q", answer: "A", createdAt: now, updatedAt: now, video }] },
     applicationCommitment: { findMany: async () => [{ id: "app1", userId: "user-1", videoId: "v1", title: "Aplicar", status: "planned", dueAt: now, createdAt: now, updatedAt: now, video, learningPath: null }] },
     learningPath: { findMany: async () => [{ id: "p1", title: "React", objective: "Aprender", progress: 0, items: [{ id: "pi1", status: "pending", section: "Base", estimatedMinutes: 5, video }] }] },
+    userSettings: { findUnique: async () => ({ dailyReviewTarget: 3 }) },
+    reviewAttempt: { count: async () => 2 },
   };
 }
 

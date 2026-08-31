@@ -38,3 +38,24 @@ test('achievement tones use known token names', async () => {
   const app = await read('src/App.jsx');
   assert.doesNotMatch(app, /greeFn/);
 });
+
+
+test('Guardinho command consumption never becomes application', async () => {
+  const agent = await read('src/lib/guardinhoAgent.js');
+  const start = agent.indexOf("if (hasAny(normalized, ['visto'");
+  const end = agent.indexOf("if (hasAny(normalized, ['arquiva'", start);
+  assert.ok(start >= 0 && end > start);
+  const block = agent.slice(start, end);
+  assert.match(block, /consumedAt:\s*now/);
+  assert.doesNotMatch(block, /status:\s*['"]aplicado['"]/);
+  assert.doesNotMatch(block, /applicationStatus/);
+});
+
+test('PWA install and extension security controls stay reachable', async () => {
+  const app = await read('src/App.jsx');
+  const everywhere = await read('src/features/everywhere/EverywhereLayer.jsx');
+  assert.match(app, /Instalar Guardei/);
+  assert.match(everywhere, /revokeCaptureToken/);
+  assert.match(everywhere, /removeCollection/);
+  assert.match(everywhere, /extensionCaptureEnabled/);
+});

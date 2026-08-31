@@ -138,7 +138,7 @@ export default function App() {
   const [toast, setToast] = useState('');
   const [selectedId, setSelectedId] = useState(null);
   const [reviewIndex, setReviewIndex] = useState(0);
-  const [recommendation, setRecommendation] = useState(DEFAULT_RECOMMENDATION);
+  const recommendation = DEFAULT_RECOMMENDATION;
   const [isInstallable, setIsInstallable] = useState(false);
   const [smartSearchResults, setSmartSearchResults] = useState([]);
   const [smartSearchMeta, setSmartSearchMeta] = useState({});
@@ -160,28 +160,9 @@ export default function App() {
   const selectedPath = useMemo(() => paths.find(path => path.id === selectedPathId) || null, [paths, selectedPathId]);
 
   const activeVideos = useMemo(() => videos.filter(video => video.status !== 'arquivado'), [videos]);
-  const inboxVideos = useMemo(() => videos.filter(video => video.status === 'inbox'), [videos]);
-  const importantVideos = useMemo(() => videos.filter(video => video.status === 'importante'), [videos]);
-  const appliedVideos = useMemo(() => videos.filter(video => video.applicationStatus === 'completed' && video.appliedAt), [videos]);
   const watchStats = useMemo(() => buildWatchStats(videos), [videos]);
   const achievementStats = useMemo(() => ({ ...watchStats, ...knowledgeMetrics }), [watchStats, knowledgeMetrics]);
   const earnedAchievements = useMemo(() => ACHIEVEMENTS.filter(achievement => achievement.test(achievementStats)), [achievementStats]);
-
-  const dailyQueue = useMemo(() => {
-    return [...videos]
-      .filter(video => !['arquivado', 'aplicado'].includes(video.status))
-      .sort((a, b) => {
-        const priority = { alta: 0, media: 1, baixa: 2 };
-        const pa = priority[a.priority] ?? 3;
-        const pb = priority[b.priority] ?? 3;
-        if (pa !== pb) return pa - pb;
-        const ra = a.reviewedAt ? new Date(a.reviewedAt).getTime() : 0;
-        const rb = b.reviewedAt ? new Date(b.reviewedAt).getTime() : 0;
-        if (ra !== rb) return ra - rb;
-        return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
-      })
-      .slice(0, settings?.dailyReviewTarget || 3);
-  }, [settings?.dailyReviewTarget, videos]);
 
   const reviewQueue = useMemo(() => {
     const base = [...videos].filter(video => !['arquivado', 'aplicado'].includes(video.status));
@@ -275,7 +256,7 @@ export default function App() {
     const fresh = earnedAchievements.find(achievement => !announcedAchievementsRef.current.has(achievement.id));
     if (!fresh) return;
     fresh && announcedAchievementsRef.current.add(fresh.id);
-    pushMascotMessage(`Conquista desbloqueada: ${fresh.title}. ${fresh.text}`);
+    announceGuardinho(`Conquista desbloqueada: ${fresh.title}. ${fresh.text}`);
   }, [authChecked, earnedAchievements]);
 
 
@@ -589,7 +570,7 @@ export default function App() {
     setSelectedId(id);
     if (advanceReview) setReviewIndex(index => Math.min(index + 1, Math.max(reviewQueue.length - 1, 0)));
     refreshKnowledgeCycle();
-    pushMascotMessage(`Boa. "${getDisplayTitle(current)}" foi registrado como consumido. Aplicar é uma etapa separada — quer anotar rapidamente o que aprendeu?`);
+    announceGuardinho(`Boa. "${getDisplayTitle(current)}" foi registrado como consumido. Aplicar é uma etapa separada — quer anotar rapidamente o que aprendeu?`);
     showToast('Conteúdo marcado como consumido');
   }
 
@@ -609,7 +590,7 @@ export default function App() {
     else showToast('Abra um conteúdo para criar uma aplicação concreta.');
   }
 
-  function pushMascotMessage(text) {
+  function announceGuardinho(text) {
   window.dispatchEvent(new CustomEvent('guardei:open-guardinho', {
     detail: { assistantMessage: text }
   }));
@@ -635,9 +616,10 @@ export default function App() {
   async function installApp() {
     if (!deferredPromptRef.current) return;
     deferredPromptRef.current.prompt();
-    await deferredPromptRef.current.userChoice;
+    const choice = await deferredPromptRef.current.userChoice;
     deferredPromptRef.current = null;
     setIsInstallable(false);
+    showToast(choice?.outcome === 'accepted' ? 'Guardei instalado' : 'Instalação cancelada');
   }
 
   async function exportJson() {
@@ -744,19 +726,7 @@ export default function App() {
       <main>
         {view === 'home' && (
           <HomeView
-            videos={videos}
-            dailyQueue={dailyQueue}
-            inboxVideos={inboxVideos}
-            importantVideos={importantVideos}
-            appliedVideos={appliedVideos}
-            setView={setView}
             setSelectedId={setSelectedId}
-            randomVideo={randomVideo}
-            recommendation={recommendation}
-            setRecommendation={setRecommendation}
-            isInstallable={isInstallable}
-            installApp={installApp}
-            pasteFromClipboard={pasteFromClipboard}
             knowledgeRefreshKey={knowledgeRefreshKey}
             onStartReview={startCardReview}
             onOpenPath={openPathFromToday}
@@ -850,7 +820,7 @@ export default function App() {
         )}
 
         {view === 'dashboard' && (
-          <DashboardView videos={videos} stats={achievementStats} setSelectedId={setSelectedId} openMascot={() => window.dispatchEvent(new CustomEvent('guardei:open-guardinho'))} knowledgeRefreshKey={knowledgeRefreshKey} onMetrics={setKnowledgeMetrics} onNotify={showToast} />
+          <DashboardView videos={videos} stats={achievementStats} setSelectedId={setSelectedId} openGuardinho={() => window.dispatchEvent(new CustomEvent('guardei:open-guardinho'))} knowledgeRefreshKey={knowledgeRefreshKey} onMetrics={setKnowledgeMetrics} onNotify={showToast} />
         )}
 
         {view === 'achievements' && (
@@ -866,6 +836,8 @@ export default function App() {
             videos={videos}
             user={user}
             logout={logout}
+            isInstallable={isInstallable}
+            installApp={installApp}
           />
         )}
       </main>
@@ -1112,7 +1084,7 @@ function LibraryView({ videos, total, filters, setFilters, setSelectedId, delete
   );
 }
 
-function DashboardView({ videos, stats, setSelectedId, openMascot, knowledgeRefreshKey, onMetrics, onNotify }) {
+function DashboardView({ videos, stats, setSelectedId, openGuardinho, knowledgeRefreshKey, onMetrics, onNotify }) {
   const topCategories = [...stats.byCategory.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5);
   const recentWatched = videos.filter(video => video.consumedAt || video.watchedAt).sort((a, b) => new Date(b.consumedAt || b.watchedAt) - new Date(a.consumedAt || a.watchedAt)).slice(0, 5);
 
@@ -1131,7 +1103,7 @@ function DashboardView({ videos, stats, setSelectedId, openMascot, knowledgeRefr
       </div>
 
       <div className="split-layout">
-        <Panel title="Relatório de consumo" action={<button onClick={openMascot}>Conversar com IA</button>}>
+        <Panel title="Relatório de consumo" action={<button onClick={openGuardinho}>Conversar com IA</button>}>
           <div className="report-list">
             {topCategories.length ? topCategories.map(([categoryId, count]) => {
               const category = CATEGORY_BY_ID[categoryId] || CATEGORY_BY_ID.misc;
@@ -1185,7 +1157,7 @@ function AchievementsView({ achievements, earned, stats }) {
   );
 }
 
-function SettingsView({ settings, updateSettings, exportJson, importJson, videos, user, logout }) {
+function SettingsView({ settings, updateSettings, exportJson, importJson, videos, user, logout, isInstallable, installApp }) {
   return (
     <section className="view-stack">
       <Panel title="Conta">
@@ -1223,6 +1195,17 @@ function SettingsView({ settings, updateSettings, exportJson, importJson, videos
         </div>
       </Panel>
 
+      <Panel title="Aplicativo">
+        <div className="install-app-card">
+          <span className="account-avatar"><IconSymbol name="download" /></span>
+          <div>
+            <strong>Guardei no seu dispositivo</strong>
+            <small>{isInstallable ? 'Instale o PWA para abrir mais rápido e usar os recursos compatíveis do navegador.' : 'Se o navegador permitir instalação, a opção aparecerá aqui automaticamente.'}</small>
+          </div>
+          {isInstallable ? <button className="primary-btn fixed-action-btn" type="button" onClick={installApp}>Instalar Guardei</button> : <span className="muted">Instalação indisponível neste momento</span>}
+        </div>
+      </Panel>
+
       <Panel title="Backup de Dados">
         <div className="backup-actions">
           <button className="primary-btn fixed-action-btn" onClick={exportJson}><IconSymbol name="download" /> Exportar Backup</button>
@@ -1230,7 +1213,7 @@ function SettingsView({ settings, updateSettings, exportJson, importJson, videos
             <IconSymbol name="upload" /> Importar Backup
             <input type="file" accept="application/json" onChange={importJson} />
           </label>
-          <span className="muted">{videos.length} itens salvos localmente</span>
+          <span className="muted">{videos.length} itens salvos na sua conta</span>
         </div>
       </Panel>
     </section>
@@ -1629,16 +1612,16 @@ function MobileDock({ view, setView }) {
       <div className="mobile-dock-more" onBlur={event => {
         if (!event.currentTarget.contains(event.relatedTarget)) setMoreOpen(false);
       }}>
-        <button type="button" className={secondaryActive ? 'active' : ''} onClick={() => setMoreOpen(value => !value)} aria-expanded={moreOpen} aria-haspopup="menu">
+        <button type="button" className={secondaryActive ? 'active' : ''} onClick={() => setMoreOpen(value => !value)} aria-expanded={moreOpen} aria-controls="mobile-more-menu">
           <IconSymbol name="menu" />
           <small>Mais</small>
         </button>
         {moreOpen && (
-          <div className="mobile-more-menu" role="menu">
+          <div id="mobile-more-menu" className="mobile-more-menu">
             {secondaryItems.map(([id, label, icon]) => {
               const active = view === id || (id === 'paths' && view === 'path-details');
               return (
-                <button key={id} type="button" role="menuitem" className={active ? 'active' : ''} onClick={() => navigate(id)}>
+                <button key={id} type="button" className={active ? 'active' : ''} onClick={() => navigate(id)}>
                   <IconSymbol name={icon} />
                   <span>{label}</span>
                 </button>

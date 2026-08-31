@@ -56,10 +56,12 @@ export async function recordReviewAttempt({ prisma, userId, cardId, payload, now
 }
 
 export async function getTodayHub({ prisma, userId, now = new Date() }) {
+  const startOfDay = new Date(now);
+  startOfDay.setHours(0, 0, 0, 0);
   const endOfDay = new Date(now);
   endOfDay.setHours(23, 59, 59, 999);
   const soon = new Date(endOfDay.getTime() + 3 * 86_400_000);
-  const [decisionItems, dueCards, applications, paths] = await Promise.all([
+  const [decisionItems, dueCards, applications, paths, userSettings, reviewedToday] = await Promise.all([
     prisma.video.findMany({
       where: { userId, status: "inbox" },
       orderBy: [{ priority: "desc" }, { createdAt: "asc" }],
@@ -91,6 +93,8 @@ export async function getTodayHub({ prisma, userId, now = new Date() }) {
         },
       },
     }),
+    prisma.userSettings.findUnique({ where: { userId }, select: { dailyReviewTarget: true } }),
+    prisma.reviewAttempt.count({ where: { userId, reviewedAt: { gte: startOfDay, lte: endOfDay } } }),
   ]);
 
   const serializedCards = dueCards.map(serializeCard);
@@ -113,6 +117,8 @@ export async function getTodayHub({ prisma, userId, now = new Date() }) {
       applications: serializedApplications.length,
       overdueApplications: overdueApplications.length,
       activePaths: pathActions.length,
+      reviewedToday,
+      dailyReviewTarget: userSettings?.dailyReviewTarget || 3,
     },
     nextAction,
     decisions: decisionItems.slice(0, 8).map(serializeVideoSummary),

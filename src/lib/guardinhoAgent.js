@@ -102,16 +102,15 @@ export async function executeGuardinhoCommand({ message, videos = [], repository
     if (!target) return response('Qual deles você já viu? Me dá um pedaço do título que eu resolvo.');
     const now = new Date().toISOString();
     await repository.updateVideo(target.id, {
-      status: 'aplicado',
+      consumedAt: now,
       watchedAt: now,
-      reviewedAt: now,
       watchCount: Number(target.watchCount || 0) + 1,
       watchedSeconds: Number(target.watchedSeconds || 0) || 300
     });
-    return response(`✅ “${getDisplayTitle(target)}” saiu oficialmente do purgatório do “depois eu vejo”.`, {
+    return response(`✅ “${getDisplayTitle(target)}” foi registrado como consumido. Aplicar continua sendo uma etapa separada.`, {
       action: 'mark-watched',
       mutated: true,
-      video: { ...target, status: 'aplicado', watchedAt: now }
+      video: { ...target, consumedAt: now, watchedAt: now }
     });
   }
 
@@ -184,8 +183,8 @@ async function askExistingMascotAi({ message, messages = [], videos = [] }) {
 }
 
 function buildAgentStats(videos) {
-  const active = videos.filter(video => !['arquivado', 'aplicado'].includes(video.status));
-  const watched = videos.filter(video => video.status === 'aplicado' || video.watchedAt);
+  const active = videos.filter(video => video.status !== 'arquivado');
+  const watched = videos.filter(video => video.consumedAt || video.watchedAt);
   const byCategory = {};
   for (const video of videos) {
     if (!video.category) continue;
