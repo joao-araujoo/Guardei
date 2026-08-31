@@ -3,6 +3,7 @@ import { randomBytes } from "node:crypto";
 import { requireAuth } from "../middleware/auth.js";
 import { prisma } from "../db/prisma.js";
 import { scheduleEmbeddingRefresh } from "../embeddings/embeddingService.js";
+import { buildSharedImportData, PUBLIC_SHARED_VIDEO_SELECT } from "../collections/publicCollection.js";
 
 const router = express.Router();
 router.get("/public/:slug", async (req, res, next) => { try { const collection = await getPublic(req.params.slug); if (!collection) return res.status(404).json({ ok: false, message: "Colecao nao encontrada." }); res.json(serialize(collection)); } catch (error) { next(error); } });
@@ -13,7 +14,7 @@ router.post("/public/:slug/import", requireAuth, async (req, res, next) => {
     for (const entry of collection.items) {
       const source = entry.video; const exists = await prisma.video.findFirst({ where: { userId: req.user.id, url: source.url } });
       if (exists) { duplicated += 1; continue; }
-      const copy = await prisma.video.create({ data: { userId: req.user.id, url: source.url, canonicalUrl: source.canonicalUrl || source.url, platform: source.platform, platformLabel: source.platformLabel, titleOriginal: source.titleOriginal, titleAi: source.titleAi, titleCustom: source.titleCustom, authorName: source.authorName, thumbnailUrl: source.thumbnailUrl, description: source.description, category: source.category, reason: source.reason, savedFor: source.savedFor || source.reason, tags: source.tags, priority: source.priority, status: "inbox", note: entry.note || source.note, summary: source.summary, mood: source.mood, effort: source.effort, durationBucket: source.durationBucket, bestFor: source.bestFor, watchWhen: source.watchWhen, origin: "shared-collection", schemaVersion: 4 } });
+      const copy = await prisma.video.create({ data: buildSharedImportData(entry, req.user.id) });
       scheduleEmbeddingRefresh(prisma, req.user.id, copy.id); created += 1;
     }
     res.json({ created, duplicated, total: collection.items.length });
@@ -33,7 +34,7 @@ router.post("/:id/items", async (req, res, next) => { try { const collection = a
 router.delete("/:id/items/:videoId", async (req, res, next) => { try { const collection = await prisma.sharedCollection.findFirst({ where: { id: req.params.id, userId: req.user.id }, select: { id: true } }); if (!collection) return res.status(404).json({ ok: false, message: "Colecao nao encontrada." }); await prisma.sharedCollectionItem.deleteMany({ where: { collectionId: collection.id, videoId: req.params.videoId } }); res.status(204).end(); } catch (error) { next(error); } });
 router.delete("/:id", async (req, res, next) => { try { const result = await prisma.sharedCollection.deleteMany({ where: { id: req.params.id, userId: req.user.id } }); if (!result.count) return res.status(404).json({ ok: false, message: "Colecao nao encontrada." }); res.status(204).end(); } catch (error) { next(error); } });
 
-async function getPublic(slug) { return prisma.sharedCollection.findFirst({ where: { slug, isPublic: true }, include: { user: { select: { name: true } }, items: { include: { video: true }, orderBy: { position: "asc" } } } }); }
+async function getPublic(slug) { return prisma.sharedCollection.findFirst({ where: { slug, isPublic: true }, include: { user: { select: { name: true } }, items: { include: { video: { select: PUBLIC_SHARED_VIDEO_SELECT } }, orderBy: { position: "asc" } } } }); }
 async function validItems(userId, ids) { const list = Array.isArray(ids) ? ids.slice(0, 100) : []; const videos = await prisma.video.findMany({ where: { userId, id: { in: list } }, select: { id: true } }); return videos.map((video, position) => ({ videoId: video.id, position })); }
 function serialize(collection) { return { id: collection.id, slug: collection.slug, title: collection.title, description: collection.description, isPublic: collection.isPublic, curator: collection.user?.name || null, createdAt: collection.createdAt, updatedAt: collection.updatedAt, items: (collection.items || []).map(entry => ({ id: entry.id, position: entry.position, note: entry.note, video: compact(entry.video) })) }; }
 function compact(video) { if (!video) return null; return { id: video.id, url: video.url, platform: video.platform, title: video.titleCustom || video.titleAi || video.titleOriginal, thumbnailUrl: video.thumbnailUrl, category: video.category, tags: video.tags, summary: video.summary, savedFor: video.savedFor }; }
