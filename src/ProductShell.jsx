@@ -52,6 +52,8 @@ function SmartLayer({ onVaultChanged }) {
   ]);
   const mountedRef = useRef(true);
   const noticeTimerRef = useRef(null);
+  const triggerRef = useRef(null);
+  const panelRef = useRef(null);
 
   const loadSnapshot = useCallback(async () => {
     try {
@@ -131,41 +133,56 @@ function SmartLayer({ onVaultChanged }) {
   }, [ready, settings.clipboardSuggestionsEnabled, videos]);
 
   useEffect(() => {
-    const handleLegacyGuardinhoIntent = event => {
-      const target = event.target;
-      if (!(target instanceof Element)) return;
+  const handleOpenGuardinho = event => {
+    const detail = event?.detail || {};
+    if (detail.assistantMessage) {
+      setMessages(items => [...items, { role: 'assistant', text: String(detail.assistantMessage) }].slice(-12));
+    }
+    if (detail.command) setCommand(String(detail.command));
+    setPanelOpen(true);
+  };
 
-      const intent = target.closest('.mascot-launcher, .mascot-speech');
-      if (!intent) return;
-
-      const legacyContainer = intent.closest('.floating-mascot');
-      if (legacyContainer?.classList.contains('open')) return;
-
-      event.preventDefault();
-      event.stopPropagation();
-      setPanelOpen(true);
-    };
-
-    document.addEventListener('click', handleLegacyGuardinhoIntent, true);
-    return () => document.removeEventListener('click', handleLegacyGuardinhoIntent, true);
-  }, []);
+  window.addEventListener('guardei:open-guardinho', handleOpenGuardinho);
+  return () => window.removeEventListener('guardei:open-guardinho', handleOpenGuardinho);
+}, []);
 
   useEffect(() => {
-    if (!panelOpen) return undefined;
+  if (!panelOpen) return undefined;
 
-    const previousOverflow = document.body.style.overflow;
-    const handleKeyDown = event => {
-      if (event.key === 'Escape') setPanelOpen(false);
-    };
+  const previousOverflow = document.body.style.overflow;
+  const previousFocus = document.activeElement;
+  const focusableSelector = 'button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])';
+  const handleKeyDown = event => {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      setPanelOpen(false);
+      return;
+    }
+    if (event.key !== 'Tab') return;
+    const focusable = panelRef.current?.querySelectorAll(focusableSelector);
+    if (!focusable?.length) return;
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  };
 
-    document.body.style.overflow = 'hidden';
-    window.addEventListener('keydown', handleKeyDown);
+  document.body.style.overflow = 'hidden';
+  window.addEventListener('keydown', handleKeyDown);
+  window.requestAnimationFrame(() => panelRef.current?.querySelector(focusableSelector)?.focus());
 
-    return () => {
-      document.body.style.overflow = previousOverflow;
-      window.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [panelOpen]);
+  return () => {
+    document.body.style.overflow = previousOverflow;
+    window.removeEventListener('keydown', handleKeyDown);
+    if (previousFocus instanceof HTMLElement && document.contains(previousFocus)) previousFocus.focus();
+    else triggerRef.current?.focus?.();
+  };
+}, [panelOpen]);
 
   async function inspectClipboard({ interactive = false } = {}) {
     if (!settings.clipboardSuggestionsEnabled || !navigator.clipboard?.readText || !window.isSecureContext) return null;
@@ -259,7 +276,7 @@ function SmartLayer({ onVaultChanged }) {
     try {
       const now = new Date().toISOString();
       await repository.updateVideo(video.id, {
-        status: 'aplicado',
+        consumedAt: now,
         watchedAt: now,
         reviewedAt: now,
         watchCount: Number(video.watchCount || 0) + 1,
@@ -382,6 +399,7 @@ function SmartLayer({ onVaultChanged }) {
 
       <button
         className="smart-guardinho-trigger"
+        ref={triggerRef}
         type="button"
         onClick={() => setPanelOpen(true)}
         aria-label="Abrir Guardinho inteligente"
@@ -396,7 +414,7 @@ function SmartLayer({ onVaultChanged }) {
 
       {panelOpen ? (
         <div className="smart-panel-backdrop" onMouseDown={event => event.target === event.currentTarget && setPanelOpen(false)}>
-          <aside className="smart-panel" role="dialog" aria-modal="true" aria-labelledby="guardinho-panel-title">
+          <aside className="smart-panel" ref={panelRef} role="dialog" aria-modal="true" aria-labelledby="guardinho-panel-title">
             <header className="smart-panel-header">
               <div className="smart-panel-identity">
                 <img src={guardeiMascot} alt="" />

@@ -1,12 +1,13 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App.jsx';
+import AppErrorBoundary from './AppErrorBoundary.jsx';
 import ProductShell from './ProductShell.jsx';
 import PushBootstrap from './PushBootstrap.jsx';
 import EverywhereLayer from './features/everywhere/EverywhereLayer.jsx';
 import './styles.css';
 import './design-system.css';
-import './home-simplify.css';
+import './product-completion.css';
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
@@ -50,6 +51,8 @@ function ExperienceRoot() {
 
 createRoot(document.getElementById('root')).render(
   <React.StrictMode>
-    <ExperienceRoot />
+    <AppErrorBoundary>
+      <ExperienceRoot />
+    </AppErrorBoundary>
   </React.StrictMode>
 );

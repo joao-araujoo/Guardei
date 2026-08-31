@@ -533,10 +533,9 @@ select:disabled {
   --smart-panel-width: 510px;
 }
 
-/* The existing mascot remains the visible brand launcher. The smart button is
-   only the integration target until the legacy launcher is fully refactored. */
+/* Guardinho has one launcher and one assistive surface across desktop and mobile. */
 .smart-guardinho-trigger {
-  display: none !important;
+  display: flex;
 }
 
 .smart-panel-backdrop {

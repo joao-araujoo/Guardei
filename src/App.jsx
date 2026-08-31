@@ -20,7 +20,6 @@ import { searchLibrary } from './services/searchService.js';
 import { pathService } from './services/pathService.js';
 import { knowledgeService } from './services/knowledgeService.js';
 import guardeiLogo from './assets/icons/guardei-logo.png';
-import guardeiMascot from './assets/mascot/guardei-mascot.png';
 
 function IconSymbol({ name, size = 'normal' }) {
   const icons = {
@@ -91,7 +90,7 @@ const ACHIEVEMENTS = [
   { id: 'watch-10', icon: 'target', tone: 'pink', title: 'Ritmo Bom', text: 'Registrar 10 conteúdos consumidos.', test: s => s.watched >= 10 },
   { id: 'watch-15', icon: 'target', tone: 'purple', title: 'Revisor Fiel', text: 'Registrar 15 conteúdos consumidos.', test: s => s.watched >= 15 },
   { id: 'watch-30', icon: 'trophy', tone: 'red', title: 'Acervo Vivo', text: 'Registrar 30 conteúdos consumidos.', test: s => s.watched >= 30 },
-  { id: 'watch-60', icon: 'zap', tone: 'greeFn', title: 'Sem Poeira', text: 'Registrar 60 conteúdos consumidos.', test: s => s.watched >= 60 },
+  { id: 'watch-60', icon: 'zap', tone: 'green', title: 'Sem Poeira', text: 'Registrar 60 conteúdos consumidos.', test: s => s.watched >= 60 },
   { id: 'hour-1', icon: 'clock', tone: 'yellow', title: 'Uma Hora Investida', text: 'Registrar 60 minutos assistidos.', test: s => s.minutes >= 60 },
   { id: 'hour-3', icon: 'clock', tone: 'blue', title: 'Sessão Tripla', text: 'Registrar 3 horas assistidas.', test: s => s.minutes >= 180 },
   { id: 'hour-5', icon: 'clock', tone: 'pink', title: 'Maratoninha Consciente', text: 'Registrar 5 horas assistidas.', test: s => s.minutes >= 300 },
@@ -140,13 +139,6 @@ export default function App() {
   const [selectedId, setSelectedId] = useState(null);
   const [reviewIndex, setReviewIndex] = useState(0);
   const [recommendation, setRecommendation] = useState(DEFAULT_RECOMMENDATION);
-  const [mascotInput, setMascotInput] = useState('');
-  const [mascotMessages, setMascotMessages] = useState([
-    { role: 'assistant', text: 'Eu sou o Guardinho. Me chama quando quiser escolher o que ver, fugir da procrastinação ou entender seus padrões de consumo.' }
-  ]);
-  const [mascotOpen, setMascotOpen] = useState(false);
-  const [mascotBubble, setMascotBubble] = useState('Quer que eu escolha algo rápido para você revisar?');
-  const [mascotLoading, setMascotLoading] = useState(false);
   const [isInstallable, setIsInstallable] = useState(false);
   const [smartSearchResults, setSmartSearchResults] = useState([]);
   const [smartSearchMeta, setSmartSearchMeta] = useState({});
@@ -286,19 +278,6 @@ export default function App() {
     pushMascotMessage(`Conquista desbloqueada: ${fresh.title}. ${fresh.text}`);
   }, [authChecked, earnedAchievements]);
 
-  useEffect(() => {
-    if (!authChecked || mascotOpen) return;
-    const tips = [
-      'Tem 5 minutos? Eu posso escolher um item curto do seu acervo.',
-      'Seu Guardei fica melhor quando você marca o que já viu.',
-      'Quer um mini relatório do que você mais está consumindo?',
-      'Se estiver procrastinando, me chama que eu escolho uma coisa leve.'
-    ];
-    const timer = window.setInterval(() => {
-      setMascotBubble(tips[Math.floor(Math.random() * tips.length)]);
-    }, 90000);
-    return () => window.clearInterval(timer);
-  }, [authChecked, mascotOpen]);
 
   useEffect(() => {
     if (!authChecked || !user || !['paths', 'path-details', 'map'].includes(view)) return;
@@ -631,35 +610,10 @@ export default function App() {
   }
 
   function pushMascotMessage(text) {
-    setMascotBubble(text);
-    setMascotMessages(messages => [...messages, { role: 'assistant', text }].slice(-10));
-  }
-
-  async function sendMascotMessage(event) {
-    event?.preventDefault();
-    const text = mascotInput.trim();
-    if (!text) return;
-    const nextMessages = [...mascotMessages, { role: 'user', text }].slice(-10);
-    setMascotMessages(nextMessages);
-    setMascotInput('');
-    setMascotLoading(true);
-    try {
-      const answer = await chatWithMascot({
-        message: text,
-        messages: nextMessages,
-        videos,
-        stats: watchStats
-      });
-      setMascotBubble(answer);
-      setMascotMessages(messages => [...messages, { role: 'assistant', text: answer }].slice(-10));
-    } catch {
-      const answer = buildMascotAnswer(text, videos, watchStats);
-      setMascotBubble(answer);
-      setMascotMessages(messages => [...messages, { role: 'assistant', text: answer }].slice(-10));
-    } finally {
-      setMascotLoading(false);
-    }
-  }
+  window.dispatchEvent(new CustomEvent('guardei:open-guardinho', {
+    detail: { assistantMessage: text }
+  }));
+}
 
   function openVideo(video) {
     if (!video?.url) return;
@@ -887,7 +841,7 @@ export default function App() {
             onDelete={deleteLearningPath}
             onAddItem={addLearningPathItem}
             onUpdateGap={updateLearningPathGap}
-            onTalk={() => { setMascotInput(`O que eu deveria fazer agora na trilha ${selectedPath.title}?`); setMascotOpen(true); }}
+            onTalk={() => window.dispatchEvent(new CustomEvent('guardei:open-guardinho', { detail: { command: `O que eu deveria fazer agora na trilha ${selectedPath.title}?` } }))}
           />
         )}
 
@@ -896,7 +850,7 @@ export default function App() {
         )}
 
         {view === 'dashboard' && (
-          <DashboardView videos={videos} stats={achievementStats} setSelectedId={setSelectedId} openMascot={() => setMascotOpen(true)} knowledgeRefreshKey={knowledgeRefreshKey} onMetrics={setKnowledgeMetrics} onNotify={showToast} />
+          <DashboardView videos={videos} stats={achievementStats} setSelectedId={setSelectedId} openMascot={() => window.dispatchEvent(new CustomEvent('guardei:open-guardinho'))} knowledgeRefreshKey={knowledgeRefreshKey} onMetrics={setKnowledgeMetrics} onNotify={showToast} />
         )}
 
         {view === 'achievements' && (
@@ -935,18 +889,6 @@ export default function App() {
         />
       )}
 
-      <FloatingMascot
-        open={mascotOpen}
-        setOpen={setMascotOpen}
-        bubble={mascotBubble}
-        messages={mascotMessages}
-        input={mascotInput}
-        setInput={setMascotInput}
-        onSubmit={sendMascotMessage}
-        loading={mascotLoading}
-        randomVideo={randomVideo}
-        onDismissBubble={() => setMascotBubble('')}
-      />
 
       <div className={`toast ${toast ? 'show' : ''}`}>{toast}</div>
     </div>
@@ -1016,22 +958,9 @@ function AuthView({ mode, setMode, form, setForm, onSubmit, loading }) {
   );
 }
 
-function HomeView({ videos, dailyQueue, inboxVideos, importantVideos, appliedVideos, setView, setSelectedId, randomVideo, recommendation, setRecommendation, isInstallable, installApp, pasteFromClipboard, knowledgeRefreshKey, onStartReview, onOpenPath, onOpenApplications, onTodayData, onNotify }) {
+function HomeView({ setSelectedId, knowledgeRefreshKey, onStartReview, onOpenPath, onOpenApplications, onTodayData, onNotify }) {
   return (
-    <section className="view-stack">
-      <div className="hero-panel">
-        <div>
-          <span className="eyebrow">Bem-vindo ao Guardei</span>
-          <h1>Organize e redescubra o melhor da web.</h1>
-          <p>Salve links, vídeos, artigos e ideias. A IA ajuda a organizar, categorizar e sugerir o que encaixa perfeitamente com seu tempo livre.</p>
-        </div>
-        <div className="hero-actions">
-          <button className="primary-btn" onClick={() => setView('add')}>Salvar Link</button>
-          <button className="secondary-btn" onClick={pasteFromClipboard}>Colar do Clipboard</button>
-          {isInstallable && <button className="secondary-btn" onClick={installApp}>Instalar App</button>}
-        </div>
-      </div>
-
+    <section className="view-stack home-today-only">
       <TodayHub
         refreshKey={knowledgeRefreshKey}
         onStartReview={onStartReview}
@@ -1041,103 +970,6 @@ function HomeView({ videos, dailyQueue, inboxVideos, importantVideos, appliedVid
         onNotify={onNotify}
         onData={onTodayData}
       />
-
-      <div className="stats-grid">
-        <StatCard label="No acervo" value={videos.length} icon="book" />
-        <StatCard label="Inbox" value={inboxVideos.length} icon="inbox" tone={inboxVideos.length ? 'warn' : ''} />
-        <StatCard label="Importantes" value={importantVideos.length} icon="star" />
-        <StatCard label="Aplicados" value={appliedVideos.length} icon="check" />
-      </div>
-
-      <div className="split-layout">
-        <Panel title="Para revisar hoje" action={<button onClick={() => setView('review')}>Revisar</button>}>
-          {dailyQueue.length ? (
-            <div className="daily-list">
-              {dailyQueue.map(video => <CompactVideoRow key={video.id} video={video} onClick={() => setSelectedId(video.id)} />)}
-            </div>
-          ) : <EmptyState title="Sem itens pendentes" text="Salve um link para começar a revisar." />}
-        </Panel>
-
-        <Panel title="Não sei o que assistir" action={<button onClick={() => randomVideo(recommendation)}>Sortear</button>}>
-          <div className="smart-picker">
-            <div className="select-caption">
-              <span><IconSymbol name="clock" /> Tempo</span>
-              <span><IconSymbol name="smile" /> Mood</span>
-              <span><IconSymbol name="source" /> Fonte</span>
-            </div>
-            <select value={recommendation.time} onChange={event => setRecommendation({ ...recommendation, time: event.target.value })}>
-              <option value="any">Qualquer duração</option>
-              <option value="short">2 a 5 minutos</option>
-              <option value="medium">10 a 20 minutos</option>
-              <option value="long">Com calma</option>
-            </select>
-            <select value={recommendation.mood} onChange={event => setRecommendation({ ...recommendation, mood: event.target.value })}>
-              <option value="any">Qualquer humor</option>
-              <option value="leve">Leve</option>
-              <option value="focado">Focado</option>
-              <option value="criativo">Criativo</option>
-            </select>
-            <select value={recommendation.platform} onChange={event => setRecommendation({ ...recommendation, platform: event.target.value })}>
-              <option value="all">Todas as fontes</option>
-              {PLATFORM_OPTIONS.map(platform => <option key={platform.id} value={platform.id}>{platform.label}</option>)}
-            </select>
-          </div>
-          <div
-            className="roulette-card"
-            onClick={() => randomVideo(recommendation)}
-            onKeyDown={event => {
-              if (!['Enter', ' '].includes(event.key)) return;
-              event.preventDefault();
-              randomVideo(recommendation);
-            }}
-            role="button"
-            tabIndex={0}
-            aria-label="Sortear uma recomendação do acervo"
-          >
-            <IconSymbol name="star" />
-            <strong>Deixa a IA escolher</strong>
-            <small>baseado em tempo livre, humor e energia mental</small>
-          </div>
-        </Panel>
-      </div>
-
-      {videos.some(video => video.capsule && ['completed', 'limited'].includes(video.capsule.status)) && (
-        <Panel title="Conhecimento recém-extraído">
-          <div className="capsule-preview-list">
-            {[...videos]
-              .filter(video => video.capsule && ['completed', 'limited'].includes(video.capsule.status))
-              .sort((a, b) => new Date(b.capsule.generatedAt || b.capsule.updatedAt || 0) - new Date(a.capsule.generatedAt || a.capsule.updatedAt || 0))
-              .slice(0, 3)
-              .map(video => <CapsulePreviewRow key={video.id} video={video} onClick={() => setSelectedId(video.id)} />)}
-          </div>
-        </Panel>
-      )}
-
-      <Panel title="Fontes favoritas">
-        <div className="platform-wall">
-          {PLATFORM_OPTIONS.slice(0, 13).map(platform => (
-            <span key={platform.id} className="platform-token">
-              <PlatformLogo platform={platform.id} />
-              {platform.label}
-            </span>
-          ))}
-        </div>
-      </Panel>
-
-      <Panel title="Mundos">
-        <div className="category-worlds">
-          {CATEGORIES.map(category => {
-            const count = videos.filter(video => video.category === category.id).length;
-            return (
-              <button key={category.id} className="world-card" style={{ '--accent': category.accent, background: category.accent }} onClick={() => { setView('library'); }}>
-          <IconSymbol name={category.icon} />
-          <strong>{category.label}</strong>
-          <small>{count} itens</small>
-              </button>
-            );
-          })}
-        </div>
-      </Panel>
     </section>
   );
 }
@@ -1350,61 +1182,6 @@ function AchievementsView({ achievements, earned, stats }) {
         })}
       </div>
     </section>
-  );
-}
-
-function FloatingMascot({ open, setOpen, bubble, messages, input, setInput, onSubmit, loading, randomVideo, onDismissBubble }) {
-  return (
-    <div className={`floating-mascot ${open ? 'open' : ''}`}>
-      {!open && bubble && (
-        <div className="mascot-speech-wrap">
-          <button className="mascot-speech-close" type="button" onClick={onDismissBubble} aria-label="Fechar mensagem do Guardinho">×</button>
-          <button className="mascot-speech" onClick={() => setOpen(true)}>
-            {bubble}
-          </button>
-        </div>
-      )}
-      {open && (
-        <section className="mascot-popup" aria-label="Chat com o Guardinho">
-          <div className="mascot-popup-head">
-            <img src={guardeiMascot} alt="Mascote do Guardei" />
-            <div>
-              <strong>Guardinho</strong>
-              <small>Seu ajudante anti-procrastinação :)</small>
-            </div>
-            <button className="modal-close mini" type="button" onClick={() => setOpen(false)}>×</button>
-          </div>
-        <div className="chat-log">
-          {messages.map((message, index) => (
-            <div key={index} className={`chat-bubble ${message.role}`}>
-              {message.text}
-            </div>
-          ))}
-          {loading && <div className="chat-bubble assistant">O Guardinho está pensando um pouco...</div>}
-        </div>
-
-        <form className="chat-form" onSubmit={onSubmit}>
-          <textarea
-            value={input}
-            onChange={event => setInput(event.target.value)}
-            onKeyDown={event => {
-              if (event.key === 'Enter' && !event.shiftKey) {
-                event.preventDefault();
-                onSubmit(event);
-              }
-            }}
-            placeholder="Ex: estou sem foco, o que eu vejo agora?"
-            aria-label="Mensagem para a IA mascote"
-          />
-          <button className="primary-btn" type="submit" disabled={loading}>{loading ? '...' : 'Enviar'}</button>
-        </form>
-          <button className="secondary-btn mascot-random" type="button" onClick={() => randomVideo()}>Escolher algo para mim</button>
-        </section>
-      )}
-      <button className="mascot-launcher" onClick={() => setOpen(value => !value)} aria-label="Abrir chat com o Guardinho">
-        <img src={guardeiMascot} alt="" />
-      </button>
-    </div>
   );
 }
 
@@ -1821,26 +1598,55 @@ function EmptyState({ title, text }) {
 }
 
 function MobileDock({ view, setView }) {
-  const items = [
+  const [moreOpen, setMoreOpen] = useState(false);
+  const primaryItems = [
     ['home', 'Home', 'home'],
-    ['add', 'Salvar', 'plus'],
+    ['add', 'Guardar', 'plus'],
     ['review', 'Rever', 'repeat'],
-    ['library', 'Acervo', 'book'],
+    ['library', 'Acervo', 'book']
+  ];
+  const secondaryItems = [
     ['paths', 'Trilhas', 'route'],
     ['map', 'Mapa', 'map'],
     ['dashboard', 'Dados', 'chart'],
     ['achievements', 'Troféus', 'trophy'],
-    ['settings', 'Config', 'settings']
+    ['settings', 'Configurações', 'settings']
   ];
+  const secondaryActive = secondaryItems.some(([id]) => view === id || (id === 'paths' && view === 'path-details'));
+  const navigate = id => {
+    setView(id);
+    setMoreOpen(false);
+  };
 
   return (
-    <nav className="mobile-dock">
-      {items.map(([id, label, icon]) => (
-        <button key={id} className={view === id ? 'active' : ''} onClick={() => setView(id)}>
+    <nav className="mobile-dock" aria-label="Navegação principal" onKeyDown={event => event.key === 'Escape' && setMoreOpen(false)}>
+      {primaryItems.map(([id, label, icon]) => (
+        <button key={id} className={view === id ? 'active' : ''} onClick={() => navigate(id)} aria-current={view === id ? 'page' : undefined}>
           <IconSymbol name={icon} />
           <small>{label}</small>
         </button>
       ))}
+      <div className="mobile-dock-more" onBlur={event => {
+        if (!event.currentTarget.contains(event.relatedTarget)) setMoreOpen(false);
+      }}>
+        <button type="button" className={secondaryActive ? 'active' : ''} onClick={() => setMoreOpen(value => !value)} aria-expanded={moreOpen} aria-haspopup="menu">
+          <IconSymbol name="menu" />
+          <small>Mais</small>
+        </button>
+        {moreOpen && (
+          <div className="mobile-more-menu" role="menu">
+            {secondaryItems.map(([id, label, icon]) => {
+              const active = view === id || (id === 'paths' && view === 'path-details');
+              return (
+                <button key={id} type="button" role="menuitem" className={active ? 'active' : ''} onClick={() => navigate(id)}>
+                  <IconSymbol name={icon} />
+                  <span>{label}</span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
     </nav>
   );
 }
