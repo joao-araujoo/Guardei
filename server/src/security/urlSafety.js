@@ -13,7 +13,8 @@ export const ALLOWED_CONTENT_TYPES = [
   "application/json",
 ];
 
-const BLOCKED_NETWORKS = createBlockedNetworks();
+const BLOCKED_IPV4 = createBlockedIpv4Networks();
+const BLOCKED_IPV6 = createBlockedIpv6Networks();
 
 export class UnsafeUrlError extends Error {
   constructor(code, message) {
@@ -139,13 +140,13 @@ export function isBlockedIp(address) {
   const normalized = String(address || "").toLowerCase().split("%")[0];
   const version = net.isIP(normalized);
   if (!version) return true;
-  return BLOCKED_NETWORKS.check(normalized, version === 4 ? "ipv4" : "ipv6");
+  return version === 4
+    ? BLOCKED_IPV4.check(normalized, "ipv4")
+    : BLOCKED_IPV6.check(normalized, "ipv6");
 }
 
-function createBlockedNetworks() {
+function createBlockedIpv4Networks() {
   const blockList = new net.BlockList();
-
-  // IPv4 ranges that must never be reached by server-side content fetching.
   for (const [address, prefix] of [
     ["0.0.0.0", 8],
     ["10.0.0.0", 8],
@@ -164,10 +165,15 @@ function createBlockedNetworks() {
   ]) {
     blockList.addSubnet(address, prefix, "ipv4");
   }
+  return blockList;
+}
 
-  // As of the current IANA allocation, globally assignable IPv6 unicast lives
-  // in 2000::/3. Blocking its complement closes mapped/compatible, NAT64,
-  // ULA, link-local, site-local, multicast and other special literal forms.
+function createBlockedIpv6Networks() {
+  const blockList = new net.BlockList();
+
+  // IANA currently allocates globally assignable IPv6 unicast from 2000::/3.
+  // Blocking its complement closes IPv4-mapped/compatible, NAT64, ULA,
+  // link-local, deprecated site-local, multicast and other special literals.
   for (const [address, prefix] of [
     ["::", 3],
     ["4000::", 2],
