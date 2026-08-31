@@ -2,6 +2,7 @@ import { GoogleGenAI, Type } from "@google/genai";
 
 const ALLOWED_MIME = new Set(["image/png", "image/jpeg", "image/webp"]);
 const MAX_IMAGE_BYTES = 4 * 1024 * 1024;
+const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 
 export async function analyzeScreenshot(dataUrl, { enableAi = true } = {}) {
   const image = parseImageDataUrl(dataUrl);
@@ -60,7 +61,22 @@ function parseImageDataUrl(value) {
   const base64 = match[2].replace(/\s+/g, "");
   const bytes = Buffer.from(base64, "base64");
   if (!bytes.length || bytes.length > MAX_IMAGE_BYTES) throw inputError("Screenshot deve ter no maximo 4 MB.");
+  if (!hasValidImageSignature(bytes, match[1])) throw inputError("O conteudo enviado nao corresponde ao formato de imagem informado.");
   return { mimeType: match[1], base64, bytes: bytes.length, dataUrl: `data:${match[1]};base64,${base64}` };
+}
+
+export function hasValidImageSignature(bytes, mimeType) {
+  if (!Buffer.isBuffer(bytes)) return false;
+  if (mimeType === "image/png") {
+    return bytes.length >= PNG_SIGNATURE.length && bytes.subarray(0, PNG_SIGNATURE.length).equals(PNG_SIGNATURE);
+  }
+  if (mimeType === "image/jpeg") {
+    return bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff;
+  }
+  if (mimeType === "image/webp") {
+    return bytes.length >= 12 && bytes.toString("ascii", 0, 4) === "RIFF" && bytes.toString("ascii", 8, 12) === "WEBP";
+  }
+  return false;
 }
 
 function clean(value, max) {
