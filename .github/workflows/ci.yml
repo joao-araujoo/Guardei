@@ -71,13 +71,28 @@ jobs:
       - name: Audit backend dependencies
         run: npm audit --prefix server --audit-level=high
 
-      - name: Validate Prisma schema and migrations
+      - name: Validate fresh-database Prisma migrations
         working-directory: server
         run: |
           npx prisma validate
           npx prisma migrate deploy
           npx prisma migrate status
           npm run db:generate
+
+      - name: Validate legacy db-push migration adoption
+        working-directory: server
+        run: |
+          node --input-type=module <<'NODE'
+          import { PrismaClient } from '@prisma/client';
+          const prisma = new PrismaClient();
+          try {
+            await prisma.$executeRawUnsafe('DROP TABLE IF EXISTS "_prisma_migrations" CASCADE');
+          } finally {
+            await prisma.$disconnect();
+          }
+          NODE
+          npm run db:migrate:production
+          npx prisma migrate status
 
       - name: Check backend syntax
         shell: bash
