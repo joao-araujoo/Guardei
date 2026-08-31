@@ -1,0 +1,28 @@
+name: Cleanup generated dist
+
+on:
+  push:
+    branches:
+      - feat/product-completion-sprint
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/product-completion-sprint
+          fetch-depth: 0
+
+      - name: Remove tracked build output and workflow
+        run: |
+          git rm -r --ignore-unmatch dist
+          git rm .github/workflows/cleanup-generated-dist.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "chore: remove generated build artifacts"
+          git push origin HEAD:feat/product-completion-sprint
