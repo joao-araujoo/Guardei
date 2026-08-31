@@ -1,7 +1,15 @@
+import { createCoalescingTaskQueue } from "../background/coalescingTaskQueue.js";
 import { composeEmbeddingText, hashEmbeddingContent } from "./embeddingText.js";
 import { generateEmbedding } from "./embeddingProvider.js";
 import { cosineSimilarity } from "./localEmbedding.js";
 import { safeLog } from "../security/safeLog.js";
+
+const embeddingRefreshQueue = createCoalescingTaskQueue({
+  name: "embedding-refresh",
+  concurrency: 4,
+  maxPending: 5_000,
+  onTaskError: (error) => safeLog("warn", "Indexacao assincrona falhou", { code: error?.code || "EMBEDDING_BACKGROUND_FAILED" }),
+});
 
 export async function ensureVideoEmbedding({ prisma, userId, videoId, generator = generateEmbedding, force = false }) {
   const video = await prisma.video.findFirst({
@@ -59,9 +67,13 @@ export async function markEmbeddingOutdated(prisma, userId, videoId) {
 }
 
 export function scheduleEmbeddingRefresh(prisma, userId, videoId) {
-  queueMicrotask(() => {
-    ensureVideoEmbedding({ prisma, userId, videoId }).catch((error) => safeLog("warn", "Indexacao assincrona falhou", { userId, videoId, code: error?.code }));
-  });
+  const result = embeddingRefreshQueue.enqueue(`${userId}:${videoId}`, () => ensureVideoEmbedding({ prisma, userId, videoId }));
+  if (!result.accepted) safeLog("warn", "Fila de indexacao cheia; item seguira disponivel para busca textual", { code: "BACKGROUND_QUEUE_FULL" });
+  return result;
+}
+
+export function getEmbeddingRefreshQueueStats() {
+  return embeddingRefreshQueue.getStats();
 }
 
 export async function deleteEmbedding(prisma, userId, videoId) {

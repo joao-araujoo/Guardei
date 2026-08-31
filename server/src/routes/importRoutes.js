@@ -1,12 +1,21 @@
 import express from "express";
 import { requireAuth } from "../middleware/auth.js";
+import { createRateLimiter } from "../middleware/rateLimit.js";
 import { prisma } from "../db/prisma.js";
 import { scheduleEmbeddingRefresh } from "../embeddings/embeddingService.js";
 import { scheduleContentSnapshot } from "../everywhere/snapshotService.js";
 import { parseAndValidateUrl } from "../security/urlSafety.js";
 
-const router = express.Router(); router.use(requireAuth);
-router.post("/bookmarks", async (req, res, next) => {
+const router = express.Router();
+const bookmarkImportRateLimit = createRateLimiter({
+  windowMs: 10 * 60 * 1000,
+  limit: 6,
+  keyPrefix: "bookmark-import",
+  message: "Muitas importacoes em pouco tempo. Aguarde alguns minutos e tente novamente.",
+});
+
+router.use(requireAuth);
+router.post("/bookmarks", bookmarkImportRateLimit, async (req, res, next) => {
   try {
     const items = parseImport(req.body || {}).slice(0, 500);
     let created = 0; let duplicated = 0; let invalid = 0;
@@ -17,11 +26,17 @@ router.post("/bookmarks", async (req, res, next) => {
         if (existing) { duplicated += 1; continue; }
         const title = clean(item.title, 500) || new URL(url).hostname;
         const video = await prisma.video.create({ data: { userId: req.user.id, url, canonicalUrl: url, platform: "web", platformLabel: "Favoritos", titleOriginal: title, titleAi: title, category: "misc", reason: "guardar", savedFor: "ver-depois", tags: ["importado"], priority: "baixa", status: "inbox", origin: "bookmark-import", schemaVersion: 4 } });
-        scheduleEmbeddingRefresh(prisma, req.user.id, video.id); scheduleContentSnapshot(prisma, req.user.id, video.id); created += 1;
-      } catch { invalid += 1; }
+        scheduleEmbeddingRefresh(prisma, req.user.id, video.id);
+        scheduleContentSnapshot(prisma, req.user.id, video.id);
+        created += 1;
+      } catch {
+        invalid += 1;
+      }
     }
     res.json({ total: items.length, created, duplicated, invalid });
-  } catch (error) { next(error); }
+  } catch (error) {
+    next(error);
+  }
 });
 
 function parseImport(body) {
