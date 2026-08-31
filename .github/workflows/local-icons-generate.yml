@@ -27,7 +27,7 @@ jobs:
       - run: npm run build
       - name: Commit generated catalog
         run: |
-          if git diff --quiet -- src/lib/localIconify.js; then
+          if [ -z "$(git status --porcelain -- src/lib/localIconify.js)" ]; then
             echo "Local icon catalog already current."
             exit 0
           fi
