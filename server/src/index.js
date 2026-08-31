@@ -26,7 +26,7 @@ import spaceRoutes from "./routes/spaceRoutes.js";
 import synthesisRoutes from "./routes/synthesisRoutes.js";
 import importRoutes from "./routes/importRoutes.js";
 import collectionRoutes from "./routes/collectionRoutes.js";
-import { isExtensionOrigin, parseOrigins, securityHeaders, verifyRequestOrigin } from "./middleware/security.js";
+import { getRequestOrigin, isExtensionOrigin, parseOrigins, securityHeaders, verifyRequestOrigin } from "./middleware/security.js";
 import { safeLog } from "./security/safeLog.js";
 import { getPushConfig, startPushScheduler } from "./push/webPush.js";
 import { startDigestScheduler } from "./everywhere/digestScheduler.js";
@@ -45,11 +45,8 @@ export function createApp() {
   app.disable("x-powered-by");
   app.use(securityHeaders);
   app.use(cors((req, callback) => {
-    const origin = req.get("origin")?.replace(/\/$/, "");
-    const forwardedProtocol = req.get("x-forwarded-proto")?.split(",")[0]?.trim();
-    const protocol = forwardedProtocol || (req.secure ? "https" : "http");
-    const host = req.get("x-forwarded-host")?.split(",")[0]?.trim() || req.get("host");
-    const requestOrigin = host ? `${protocol}://${host}`.replace(/\/$/, "") : "";
+    const origin = req.get("origin")?.trim().replace(/\/$/, "");
+    const requestOrigin = getRequestOrigin(req);
     const extensionCapture = isExtensionOrigin(origin) && req.path.startsWith("/api/capture");
     const originAllowed = !origin || origin === requestOrigin || corsOrigins.includes(origin) || extensionCapture;
 
