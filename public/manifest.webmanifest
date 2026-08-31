@@ -2,7 +2,7 @@
   "id": "/",
   "name": "Guardei - Acervo com IA",
   "short_name": "Guardei",
-  "description": "Salve qualquer link da internet, organize seu acervo e receba recomendacoes inteligentes do Guardinho para revisitar o que importa.",
+  "description": "Salve qualquer link da internet, organize seu acervo e receba recomendações inteligentes do Guardinho para revisitar o que importa.",
   "lang": "pt-BR",
   "dir": "ltr",
   "start_url": "/",
@@ -11,7 +11,6 @@
   "display_override": ["standalone", "minimal-ui"],
   "background_color": "#f6edd8",
   "theme_color": "#f6edd8",
-  "orientation": "portrait-primary",
   "categories": ["productivity", "utilities", "lifestyle"],
   "prefer_related_applications": false,
   "launch_handler": {
@@ -45,7 +44,7 @@
     {
       "name": "Guardar link copiado",
       "short_name": "Guardar",
-      "description": "Abrir o Guardinho e detectar o link que esta no clipboard.",
+      "description": "Abrir o Guardinho e detectar o link que está no clipboard.",
       "url": "/?clipboard=1",
       "icons": [{ "src": "/icons/guardei-icon.png", "sizes": "1254x1254", "type": "image/png" }]
     },
@@ -57,7 +56,7 @@
       "icons": [{ "src": "/icons/guardei-icon.png", "sizes": "1254x1254", "type": "image/png" }]
     },
     {
-      "name": "Revisao rapida",
+      "name": "Revisão rápida",
       "short_name": "Revisar",
       "description": "Abrir itens para revisar.",
       "url": "/?review=1",

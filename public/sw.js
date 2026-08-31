@@ -1,4 +1,4 @@
-const CACHE_NAME = 'guardei-v5';
+const CACHE_NAME = 'guardei-v6';
 const META_CACHE = 'guardei-meta-v1';
 const PERIODIC_TAG = 'guardei-smart-reminders-v1';
 const ASSETS = [
@@ -29,6 +29,11 @@ self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET') return;
   const requestUrl = new URL(event.request.url);
   if (requestUrl.origin !== self.location.origin) return;
+
+  // Authenticated API responses must never be persisted in Cache Storage.
+  // Besides stale data, caching them could expose one account's response after
+  // logout/login on the same browser profile.
+  if (requestUrl.pathname.startsWith('/api/')) return;
 
   if (event.request.mode === 'navigate') {
     event.respondWith(networkFirstNavigation(event.request));
@@ -79,7 +84,7 @@ self.addEventListener('notificationclick', event => {
   event.notification.close();
 
   if (action === 'seen' && data.videoId) {
-    event.waitUntil(markVideoSeenAndOpen(data.videoId));
+    event.waitUntil(markVideoConsumedAndOpen(data.videoId));
     return;
   }
 
@@ -229,14 +234,14 @@ async function writeLastPeriodicReminder(timestamp) {
   await cache.put(key, new Response(String(timestamp), { headers: { 'Content-Type': 'text/plain' } }));
 }
 
-async function markVideoSeenAndOpen(videoId) {
+async function markVideoConsumedAndOpen(videoId) {
   try {
     const now = new Date().toISOString();
     await fetch(`/api/videos/${encodeURIComponent(videoId)}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
-      body: JSON.stringify({ status: 'aplicado', watchedAt: now, reviewedAt: now })
+      body: JSON.stringify({ consumedAt: now, watchedAt: now, reviewedAt: now })
     });
   } catch {
     // Opening the app still lets the user update manually if the API is unavailable.

@@ -1,25 +1,30 @@
 {
-  "name": "tiktok-vault-server",
-  "version": "1.0.0",
+  "name": "guardei-server",
+  "version": "3.0.0",
   "type": "module",
   "private": true,
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "scripts": {
     "dev": "node --watch src/index.js",
     "start": "node src/index.js",
     "db:generate": "prisma generate",
-    "db:push": "prisma db push",
+    "db:migrate:deploy": "prisma migrate deploy",
+    "db:migrate:production": "node scripts/migrate-production.js",
+    "db:push:dev": "prisma db push",
     "db:studio": "prisma studio",
     "test": "node --test --test-reporter=spec",
     "push:keys": "node scripts/generate-vapid.js"
   },
   "dependencies": {
-    "@google/genai": "^2.19.0",
+    "@google/genai": "2.19.0",
     "@prisma/client": "6.19.3",
-    "cors": "latest",
-    "dotenv": "latest",
-    "express": "latest",
+    "cors": "2.8.6",
+    "dotenv": "17.4.2",
+    "express": "5.2.1",
     "prisma": "6.19.3",
-    "web-push": "^3.6.7"
+    "web-push": "3.6.7"
   },
   "overrides": {
     "body-parser": "2.3.0",

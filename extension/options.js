@@ -1,4 +1,4 @@
-const defaults = { apiBase: 'http://localhost:3333', captureToken: '', contextAssist: true };
+const defaults = { apiBase: 'http://localhost:3333', captureToken: '', contextAssist: false };
 const apiBaseInput = document.getElementById('apiBase');
 const captureTokenInput = document.getElementById('captureToken');
 const contextAssistInput = document.getElementById('contextAssist');
@@ -12,8 +12,13 @@ const statusNode = document.getElementById('status');
 })();
 
 document.getElementById('save').addEventListener('click', async () => {
+  const apiBase = apiBaseInput.value.trim().replace(/\/$/, '');
+  if (apiBase && !/^https?:\/\//i.test(apiBase)) {
+    statusNode.textContent = 'Use uma URL http:// ou https:// válida.';
+    return;
+  }
   await chrome.storage.sync.set({
-    apiBase: apiBaseInput.value.trim().replace(/\/$/, ''),
+    apiBase,
     captureToken: captureTokenInput.value.trim(),
     contextAssist: contextAssistInput.checked,
   });

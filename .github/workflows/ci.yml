@@ -13,7 +13,23 @@ jobs:
   validate:
     name: Build and validate
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: user
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: guardei
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U user -d guardei"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
     env:
       NODE_ENV: test
       DATABASE_URL: postgresql://user:password@localhost:5432/guardei
@@ -55,8 +71,28 @@ jobs:
       - name: Audit backend dependencies
         run: npm audit --prefix server --audit-level=high
 
-      - name: Generate Prisma client
-        run: npm --prefix server run db:generate
+      - name: Validate fresh-database Prisma migrations
+        working-directory: server
+        run: |
+          npx prisma validate
+          npx prisma migrate deploy
+          npx prisma migrate status
+          npm run db:generate
+
+      - name: Validate legacy db-push migration adoption
+        working-directory: server
+        run: |
+          node --input-type=module <<'NODE'
+          import { PrismaClient } from '@prisma/client';
+          const prisma = new PrismaClient();
+          try {
+            await prisma.$executeRawUnsafe('DROP TABLE IF EXISTS "_prisma_migrations" CASCADE');
+          } finally {
+            await prisma.$disconnect();
+          }
+          NODE
+          npm run db:migrate:production
+          npx prisma migrate status
 
       - name: Check backend syntax
         shell: bash

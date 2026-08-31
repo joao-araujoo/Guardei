@@ -165,7 +165,19 @@ Nunca:
 - remover validações server-side;
 - colocar segredo no frontend;
 - quebrar modo local/API existente;
-- mudar payloads sem revisar consumidores.
+- mudar payloads sem revisar consumidores;
+- armazenar respostas autenticadas de `/api/` no Cache Storage do Service Worker;
+- usar `prisma db push` como mecanismo de deploy em produção;
+- adotar um banco legado no histórico de migrations sem antes verificar drift estrutural.
+
+Regras adicionais de produção:
+
+- deploy usa migrations versionadas e `server/scripts/migrate-production.js`;
+- banco novo e banco legado sem `_prisma_migrations` precisam continuar cobertos no CI com PostgreSQL real;
+- alterações em `schema.prisma` devem vir acompanhadas de migration forward-only; não reescreva migrations já publicadas;
+- dependências diretas de produção não podem usar `latest`;
+- Web Push, Service Worker, Guardinho e qualquer outra superfície que marque algo como “visto” devem registrar consumo, nunca aplicação;
+- o assistente contextual da extensão permanece opt-in; não leia texto da página enquanto ele estiver desligado.
 
 ## 11. Validação antes de commit/PR
 
@@ -212,9 +224,10 @@ Não descreva apenas “melhorias de UI”. Seja específico.
 Uma alteração visual só está pronta quando parece pertencer ao Guardei mesmo se o autor original não estiver presente para orientar.
 
 Se uma nova tela parece ter vindo de outro produto, a implementação ainda não está pronta.
-### Product data invariant: consumir != aplicar
 
-- `watchedAt` / `consumedAt` mean the user consumed the content.
-- `applicationStatus`, `appliedAt` and application commitments mean the user actually applied something.
-- Never set `status: aplicado` merely because a video/link was watched, opened, reviewed or marked as seen.
-- Any new Guardinho action that mutates consumption/application state must have a regression test for this distinction.
+## 14. Invariante de dados: consumir != aplicar
+
+- `watchedAt` / `consumedAt` significam que o usuário consumiu o conteúdo.
+- `applicationStatus`, `appliedAt` e compromissos de aplicação significam que o usuário realmente aplicou algo.
+- Nunca defina `status: aplicado` apenas porque um vídeo/link foi visto, aberto, revisado ou marcado como visto.
+- Toda nova ação do Guardinho, PWA, Web Push ou integração que altere consumo/aplicação precisa de teste de regressão para essa distinção.

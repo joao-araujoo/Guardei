@@ -2,11 +2,19 @@ const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 
 export function securityHeaders(req, res, next) {
   const allowedConnect = parseOrigins(process.env.CORS_ORIGIN).join(" ");
+  const forwardedProtocol = String(req.get("x-forwarded-proto") || "").split(",")[0].trim().toLowerCase();
+  const isHttps = req.secure || forwardedProtocol === "https";
+
   res.setHeader("X-Content-Type-Options", "nosniff");
   res.setHeader("X-Frame-Options", "DENY");
   res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
   res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=()");
   res.setHeader("Cross-Origin-Opener-Policy", "same-origin");
+  if (isHttps) res.setHeader("Strict-Transport-Security", "max-age=15552000");
+  if (req.path === "/api" || req.path.startsWith("/api/")) {
+    res.setHeader("Cache-Control", "no-store, max-age=0");
+    res.setHeader("Pragma", "no-cache");
+  }
   res.setHeader(
     "Content-Security-Policy",
     [

@@ -37,9 +37,9 @@ A pasta `extension/` contém uma extensão Manifest V3 pronta para carregar em m
 - guardar screenshot visível;
 - menu de contexto;
 - selecionar rapidamente a intenção do salvamento;
-- mostrar discretamente **“você já guardou coisas sobre isso”** ao encontrar relação entre a página atual e o acervo.
+- opcionalmente mostrar **“você já guardou coisas sobre isso”** ao encontrar relação entre a página atual e o acervo.
 
-O token `gcp_...` usado pela extensão só é aceito nas rotas de captura e pode ser revogado dentro do Guardei.
+O token `gcp_...` usado pela extensão só é aceito nas rotas de captura e pode ser revogado dentro do Guardei. O assistente contextual é **desligado por padrão**; quando ativado, URL, título e um pequeno trecho da página são enviados apenas ao backend configurado pelo próprio usuário para comparar com seu acervo.
 
 ### Guardinho e reencontro
 
@@ -90,15 +90,17 @@ O token `gcp_...` usado pela extensão só é aceito nas rotas de captura e pode
 
 ## Rodar localmente
 
+Requer Node.js 20.19+.
+
 Frontend:
 
-    npm install
+    npm ci
     npm run dev
 
 Backend:
 
     cd server
-    npm install
+    npm ci
     npm run db:generate
     npm run dev
 
@@ -114,13 +116,22 @@ Variáveis mínimas para modo API:
 
 ## Banco e deploy
 
-Para instalações que já possuem as migrations do Ciclo de Conhecimento, aplique a migration aditiva mais recente:
+O histórico de Prisma possui uma baseline idempotente para o schema que existia antes das migrations versionadas. Bancos novos conseguem executar a cadeia inteira desde zero.
+
+Em produção use:
 
     cd server
-    npx prisma migrate deploy
-    npx prisma generate
+    npm run db:generate
+    npm run db:migrate:production
 
-O schema preserva os dados anteriores e adiciona captura universal, snapshots, assets, coleções, pensamentos, digest e tokens de captura.
+`db:migrate:production` trata dois cenários de forma conservadora:
+
+- se o banco já possui `_prisma_migrations`, executa `prisma migrate deploy` normalmente;
+- se detectar um banco legado criado por `db push` sem histórico, primeiro compara **somente a estrutura** com o schema atual. A adoção das migrations só acontece quando não existe drift; qualquer diferença interrompe o deploy em vez de assumir que o banco está correto.
+
+`prisma db push` fica restrito ao script `db:push:dev` para desenvolvimento. O `render:build` usa instalação reproduzível do backend e o fluxo seguro `db:migrate:production`.
+
+O schema preserva os dados anteriores e inclui captura universal, snapshots, assets, coleções, pensamentos, digest, tokens de captura e o Ciclo de Conhecimento.
 
 ## Web Push
 
@@ -136,11 +147,17 @@ O CI principal executa:
 
 - instalação limpa frontend/backend com `npm ci`;
 - `npm audit` frontend/backend em nível high;
+- PostgreSQL 16 real em container;
+- `prisma validate`;
+- replay de todas as migrations em um banco novo;
+- verificação de status das migrations;
+- simulação de um banco legado sem `_prisma_migrations` e validação da adoção segura;
 - geração do Prisma Client;
 - syntax check de todo backend JavaScript;
+- inicialização do backend;
 - testes do produto inteligente;
 - testes de Cápsulas, busca/trilhas e Ciclo de Conhecimento;
-- testes da camada Everywhere;
+- testes da camada Everywhere, autenticação, PWA e extensão;
 - build de produção do frontend.
 
 ## Arquitetura visual e regras para agentes
