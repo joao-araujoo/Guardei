@@ -1,0 +1,140 @@
+/* Product-completion refinements. Keep this layer small and token-driven. */
+
+.fatal-error-shell {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: var(--space-5);
+  background: var(--ds-bg);
+  color: var(--ds-text);
+}
+
+.fatal-error-card {
+  width: min(620px, 100%);
+  display: grid;
+  gap: var(--space-4);
+  padding: clamp(20px, 5vw, 34px);
+  border: 2px solid var(--ds-border-strong);
+  border-radius: var(--radius-xl);
+  background: var(--ds-surface);
+  box-shadow: var(--shadow-lg);
+}
+
+.fatal-error-card h1,
+.fatal-error-card p {
+  margin: 0;
+}
+
+.fatal-error-card h1 {
+  font-size: clamp(30px, 7vw, 48px);
+  line-height: 1;
+}
+
+.fatal-error-card p {
+  max-width: 52ch;
+  color: var(--ds-text-muted);
+  line-height: 1.55;
+}
+
+.fatal-error-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.mobile-dock {
+  overflow: visible;
+}
+
+.mobile-dock > button {
+  min-width: 0;
+}
+
+.mobile-dock-more {
+  position: relative;
+}
+
+.mobile-more-menu {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 10px);
+  z-index: 4;
+  width: min(280px, calc(100vw - 32px));
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-2);
+  border: 2px solid var(--ds-border-strong);
+  border-radius: var(--radius-lg);
+  background: var(--ds-surface-raised);
+  box-shadow: var(--shadow-lg);
+}
+
+.mobile-more-menu button {
+  width: 100%;
+  min-height: 44px;
+  display: flex;
+  grid-template-columns: none;
+  justify-content: flex-start;
+  gap: var(--space-2);
+  padding-inline: var(--space-3);
+  color: var(--ds-text);
+  text-align: left;
+}
+
+.mobile-more-menu button.active {
+  background: var(--yellow-soft, #ffe8a8);
+}
+
+.mobile-more-menu .icon-symbol {
+  flex: 0 0 auto;
+}
+
+.smart-guardinho-trigger {
+  display: flex !important;
+}
+
+@media (max-width: 880px) {
+  .mobile-dock {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 2px;
+  }
+
+  .mobile-dock button {
+    min-width: 0;
+    min-height: 50px;
+  }
+
+  .mobile-dock small {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+@media (max-width: 520px) {
+  .fatal-error-shell {
+    padding: var(--space-3);
+  }
+
+  .fatal-error-actions > * {
+    width: 100%;
+  }
+
+  .mobile-dock {
+    width: calc(100% - 16px);
+    padding: 6px;
+  }
+
+  .mobile-more-menu {
+    right: -2px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fatal-error-card,
+  .mobile-more-menu {
+    scroll-behavior: auto;
+  }
+}
