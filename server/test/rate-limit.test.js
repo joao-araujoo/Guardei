@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { clearRateLimitStores, createRateLimiter } from "../src/middleware/rateLimit.js";
+import { clearRateLimitStores, createRateLimiter, getRateLimitStoreSizes } from "../src/middleware/rateLimit.js";
 
 function responseRecorder() {
   return {
@@ -34,4 +34,40 @@ test("rate limiter blocks requests above the configured limit", () => {
   assert.equal(third.headers["RateLimit-Remaining"], "0");
   assert.ok(Number(third.headers["Retry-After"]) >= 1);
   clearRateLimitStores();
+});
+
+test("rate limiter keeps unique-IP bucket memory bounded", () => {
+  clearRateLimitStores();
+  const limiter = createRateLimiter({ windowMs: 60_000, limit: 5, keyPrefix: "bounded-test", maxBuckets: 3 });
+  let nextCalls = 0;
+
+  for (let index = 0; index < 20; index += 1) {
+    limiter({ ip: `192.0.2.${index}`, socket: {} }, responseRecorder(), () => { nextCalls += 1; });
+  }
+
+  assert.equal(nextCalls, 20);
+  const sizes = getRateLimitStoreSizes();
+  assert.ok(sizes.every((size) => size <= 3), `expected all rate limiter stores to stay bounded, got ${sizes.join(",")}`);
+  clearRateLimitStores();
+});
+
+test("expired rate limiter buckets are reclaimed before eviction", () => {
+  clearRateLimitStores();
+  const originalNow = Date.now;
+  let now = 1_000;
+  Date.now = () => now;
+
+  try {
+    const limiter = createRateLimiter({ windowMs: 50, limit: 1, keyPrefix: "expiry-test", maxBuckets: 2 });
+    limiter({ ip: "192.0.2.1", socket: {} }, responseRecorder(), () => {});
+    limiter({ ip: "192.0.2.2", socket: {} }, responseRecorder(), () => {});
+    now = 2_000;
+    limiter({ ip: "192.0.2.3", socket: {} }, responseRecorder(), () => {});
+
+    const sizes = getRateLimitStoreSizes();
+    assert.ok(sizes.every((size) => size <= 2));
+  } finally {
+    Date.now = originalNow;
+    clearRateLimitStores();
+  }
 });
