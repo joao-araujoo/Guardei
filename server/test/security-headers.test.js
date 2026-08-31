@@ -1,22 +1,40 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { securityHeaders } from "../src/middleware/security.js";
+import { getRequestOrigin, securityHeaders, verifyRequestOrigin } from "../src/middleware/security.js";
 
 function makeResponse() {
   return {
     headers: new Map(),
+    statusCode: 200,
+    body: null,
     setHeader(name, value) { this.headers.set(String(name).toLowerCase(), String(value)); },
+    status(code) { this.statusCode = code; return this; },
+    json(payload) { this.body = payload; return this; },
   };
 }
 
-function makeRequest({ path = "/", secure = false, forwardedProto = "" } = {}) {
+function makeRequest({
+  path = "/",
+  method = "GET",
+  secure = false,
+  protocol = "http",
+  forwardedProto = "",
+  forwardedHost = "",
+  host = "localhost:3333",
+  origin = "",
+} = {}) {
+  const headers = {
+    "x-forwarded-proto": forwardedProto,
+    "x-forwarded-host": forwardedHost,
+    host,
+    origin,
+  };
   return {
     path,
+    method,
     secure,
-    get(name) {
-      if (String(name).toLowerCase() === "x-forwarded-proto") return forwardedProto;
-      return undefined;
-    },
+    protocol,
+    get(name) { return headers[String(name).toLowerCase()] || undefined; },
   };
 }
 
@@ -42,4 +60,52 @@ test("ordinary HTTP assets are not forced into API no-store policy", () => {
 
   assert.equal(res.headers.has("cache-control"), false);
   assert.equal(res.headers.has("strict-transport-security"), false);
+});
+
+test("request origin consistently uses the first trusted proxy values", () => {
+  const req = makeRequest({
+    secure: false,
+    forwardedProto: "https, http",
+    forwardedHost: "guardei.example.com, internal-proxy:3333",
+    host: "internal-proxy:3333",
+  });
+
+  assert.equal(getRequestOrigin(req), "https://guardei.example.com");
+});
+
+test("origin verification accepts the proxy-resolved same origin", () => {
+  const req = makeRequest({
+    path: "/api/videos/123",
+    method: "PATCH",
+    forwardedProto: "https, http",
+    forwardedHost: "guardei.example.com, internal-proxy:3333",
+    host: "internal-proxy:3333",
+    origin: "https://guardei.example.com",
+  });
+  const res = makeResponse();
+  let nextCalls = 0;
+
+  verifyRequestOrigin(req, res, () => { nextCalls += 1; });
+
+  assert.equal(nextCalls, 1);
+  assert.equal(res.statusCode, 200);
+});
+
+test("origin verification rejects an unrelated origin behind the same proxy", () => {
+  const req = makeRequest({
+    path: "/api/videos/123",
+    method: "PATCH",
+    forwardedProto: "https, http",
+    forwardedHost: "guardei.example.com, internal-proxy:3333",
+    host: "internal-proxy:3333",
+    origin: "https://attacker.example",
+  });
+  const res = makeResponse();
+  let nextCalls = 0;
+
+  verifyRequestOrigin(req, res, () => { nextCalls += 1; });
+
+  assert.equal(nextCalls, 0);
+  assert.equal(res.statusCode, 403);
+  assert.equal(res.body?.code, "INVALID_ORIGIN");
 });
