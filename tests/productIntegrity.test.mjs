@@ -9,7 +9,7 @@ test('frontend does not ship Gemini SDK directly', async () => {
   assert.equal(pkg.dependencies?.['@google/genai'], undefined);
 });
 
-test('production manifests are pinned and deploy through migrations', async () => {
+test('production manifests are pinned and deploy through safe migrations', async () => {
   const frontend = JSON.parse(await read('package.json'));
   const backend = JSON.parse(await read('server/package.json'));
   const allSpecs = [
@@ -23,9 +23,30 @@ test('production manifests are pinned and deploy through migrations', async () =
   assert.equal(frontend.dependencies?.['@vitejs/plugin-react'], undefined);
   assert.equal(frontend.devDependencies?.['@vitejs/plugin-react'], undefined);
   assert.match(frontend.scripts?.['render:build'] || '', /npm ci --prefix server/);
-  assert.match(frontend.scripts?.['render:build'] || '', /db:migrate:deploy/);
+  assert.match(frontend.scripts?.['render:build'] || '', /db:migrate:production/);
   assert.doesNotMatch(frontend.scripts?.['render:build'] || '', /db:push/);
   assert.equal(backend.scripts?.['db:migrate:deploy'], 'prisma migrate deploy');
+  assert.equal(backend.scripts?.['db:migrate:production'], 'node scripts/migrate-production.js');
+});
+
+test('production migration adoption refuses unverified legacy drift', async () => {
+  const script = await read('server/scripts/migrate-production.js');
+  assert.match(script, /migrate["']?,\s*["']diff/);
+  assert.match(script, /allowDiffExit:\s*true/);
+  assert.match(script, /if \(diff\.status === 2\)/);
+  assert.match(script, /adocao automatica foi interrompida/);
+  assert.match(script, /migrate["']?,\s*["']resolve/);
+  assert.match(script, /migrate["']?,\s*["']deploy/);
+});
+
+test('authentication routes rate-limit attempts and bound expensive password input', async () => {
+  const auth = await read('server/src/routes/authRoutes.js');
+  assert.match(auth, /createRateLimiter/);
+  assert.match(auth, /limit:\s*20/);
+  assert.match(auth, /router\.post\("\/login",\s*authRateLimit/);
+  assert.match(auth, /router\.post\("\/register",\s*authRateLimit/);
+  assert.match(auth, /password\.length > 256/);
+  assert.match(auth, /email\.length > 320/);
 });
 
 test('home is rendered intentionally instead of hidden by CSS sibling hacks', async () => {
