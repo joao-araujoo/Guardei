@@ -13,6 +13,9 @@ export const ALLOWED_CONTENT_TYPES = [
   "application/json",
 ];
 
+const BLOCKED_IPV4 = createBlockedIpv4Networks();
+const BLOCKED_IPV6 = createBlockedIpv6Networks();
+
 export class UnsafeUrlError extends Error {
   constructor(code, message) {
     super(message);
@@ -134,40 +137,56 @@ export async function validateResolvedTarget(url, resolveImpl = resolvePublicAdd
 }
 
 export function isBlockedIp(address) {
-  const version = net.isIP(address);
+  const normalized = String(address || "").toLowerCase().split("%")[0];
+  const version = net.isIP(normalized);
   if (!version) return true;
-  if (version === 4) return isBlockedIpv4(address);
-
-  const normalized = address.toLowerCase().split("%")[0];
-  if (normalized === "::" || normalized === "::1") return true;
-  if (normalized.startsWith("fc") || normalized.startsWith("fd")) return true;
-  if (/^fe[89ab]/.test(normalized)) return true;
-  if (normalized.startsWith("ff")) return true;
-  if (normalized.startsWith("2001:db8")) return true;
-  const mapped = normalized.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/);
-  if (mapped) return isBlockedIpv4(mapped[1]);
-  return false;
+  return version === 4
+    ? BLOCKED_IPV4.check(normalized, "ipv4")
+    : BLOCKED_IPV6.check(normalized, "ipv6");
 }
 
-function isBlockedIpv4(address) {
-  const parts = address.split(".").map(Number);
-  if (parts.length !== 4 || parts.some((part) => !Number.isInteger(part) || part < 0 || part > 255)) return true;
-  const [a, b, c] = parts;
-  return (
-    a === 0 ||
-    a === 10 ||
-    a === 127 ||
-    (a === 100 && b >= 64 && b <= 127) ||
-    (a === 169 && b === 254) ||
-    (a === 172 && b >= 16 && b <= 31) ||
-    (a === 192 && b === 168) ||
-    (a === 192 && b === 0 && c === 0) ||
-    (a === 192 && b === 0 && c === 2) ||
-    (a === 198 && (b === 18 || b === 19)) ||
-    (a === 198 && b === 51 && c === 100) ||
-    (a === 203 && b === 0 && c === 113) ||
-    a >= 224
-  );
+function createBlockedIpv4Networks() {
+  const blockList = new net.BlockList();
+  for (const [address, prefix] of [
+    ["0.0.0.0", 8],
+    ["10.0.0.0", 8],
+    ["100.64.0.0", 10],
+    ["127.0.0.0", 8],
+    ["169.254.0.0", 16],
+    ["172.16.0.0", 12],
+    ["192.0.0.0", 24],
+    ["192.0.2.0", 24],
+    ["192.168.0.0", 16],
+    ["198.18.0.0", 15],
+    ["198.51.100.0", 24],
+    ["203.0.113.0", 24],
+    ["224.0.0.0", 4],
+    ["240.0.0.0", 4],
+  ]) {
+    blockList.addSubnet(address, prefix, "ipv4");
+  }
+  return blockList;
+}
+
+function createBlockedIpv6Networks() {
+  const blockList = new net.BlockList();
+
+  // IANA currently allocates globally assignable IPv6 unicast from 2000::/3.
+  // Blocking its complement closes IPv4-mapped/compatible, NAT64, ULA,
+  // link-local, deprecated site-local, multicast and other special literals.
+  for (const [address, prefix] of [
+    ["::", 3],
+    ["4000::", 2],
+    ["8000::", 1],
+    ["2001::", 23],
+    ["2001:db8::", 32],
+    ["2002::", 16],
+    ["3fff::", 20],
+  ]) {
+    blockList.addSubnet(address, prefix, "ipv6");
+  }
+
+  return blockList;
 }
 
 function isRedirect(statusCode) {
